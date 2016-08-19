@@ -1,5 +1,6 @@
 <?php
 // 计时函数
+
 function timer()
 {
     list($usec, $sec) = explode(" ", microtime());
@@ -128,5 +129,10 @@ $app->group(['namespace' => 'App\Http\Controllers'], function ($app) {
     require __DIR__.'/../app/Http/routes.php';
 });
 
+// 直接访问 public 模式
+//$request = Illuminate\Http\Request::capture();
+//$app->run($request);
+
+// 重写模式
 return $app;
 

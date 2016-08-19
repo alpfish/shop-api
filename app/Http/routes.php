@@ -15,6 +15,7 @@ $api = app('Dingo\Api\Routing\Router');
 
 $api->version('v1', function($api){
     $api->get('/goods/search', 'App\Api\V1\Goods\SearchGoodsController@index');
+    $api->get('/goods/category/tree', 'App\Api\V1\Goods\Category\CategoryController@getTree');
 
 });
 

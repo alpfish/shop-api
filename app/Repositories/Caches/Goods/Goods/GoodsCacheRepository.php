@@ -9,6 +9,35 @@ class GoodsCacheRepository
 {
 
     /**
+     * 用 商品id 获取缓存中的: 所有字段下的商品条目
+     *
+     * 数据来源于 Goods 模型，缓存中其他商品条目数据均来源于此。
+     *
+     * @param int $id spu_id
+     *
+     * @return string JSON
+     *
+     * @author AlpFish 2016/8/14 8:20
+     */
+    public static function getGoodsItemOfAllFieldsWithGoodsId($id)
+    {
+        $key = GOODS_ITEM_OF_ALL_FIELDS_WITH_GOODS_ID_CACHE . $id;
+
+        if (! app('cache')->has($key)) {
+            $data = null;
+            if ($item = Goods::find($id)){
+                // 使用 toJson() 获取模型实例会自动添加 $appends 中追加的访问器属性, 删除 $hidden 中的隐藏字段
+                $data = $item->toJson();
+            }
+
+            $time = GOODS_ITEM_OF_ALL_FIELDS_WITH_GOODS_ID_CACHE_TIME;
+            app('cache')->put($key, $data, $time);
+        }
+
+        return app('cache')->get($key, null);
+    }
+
+    /**
      * 用 商品id 获取缓存中: 搜索列表项下的商品条目
      *
      * @param int $id spu_id
@@ -22,7 +51,7 @@ class GoodsCacheRepository
         $key = GOODS_ITEM_OF_SEARCH_LIST_WITH_GOODS_ID_CACHE . $id;
 
         if (! app('cache')->has($key)) {
-            $item = collect(json_decode(self::getGoodsItemAllDataWithGoodsId($id)));
+            $item = collect(json_decode(self::getGoodsItemOfAllFieldsWithGoodsId($id)));
             $filter = null;
             if (! $item->isEmpty() && $item->get('is_sale')) {
                 $filter = $item->only(
@@ -33,7 +62,7 @@ class GoodsCacheRepository
                     'price',            // 销售价
                     'quantity',         // 数量
                     'sales',            // 销量
-                    'search_score',     // 搜索质量得分
+                    'sort',             // 排序
                     'only_sku',         // 单一SKU
                     'only_sku_id',      // 单一SKU id
                     'tag_thumb',        // 缩略图标签
@@ -50,33 +79,5 @@ class GoodsCacheRepository
 
         return app('cache')->get($key);
     }
-
-    /**
-     * 用 商品id 获取缓存中的: 商品条目的所有数据
-     *
-     * @param int $id spu_id
-     *
-     * @return \App\Models\Goods\Goods\Goods
-     *
-     * @author AlpFish 2016/8/14 8:20
-     */
-    public static function getGoodsItemAllDataWithGoodsId($id)
-    {
-        $key = GOODS_ITEM_ALL_DATA_WITH_GOODS_ID_CACHE . $id;
-
-        if (! app('cache')->has($key)) {
-            $data = null;
-            if ($item = Goods::find($id)){
-                // 使用 toJson() 获取模型实例会自动添加 $appends 中追加的访问器属性, 删除 $hidden 中的隐藏字段
-                $data = $item->toJson();
-            }
-
-            $time = GOODS_ITEM_ALL_DATA_WITH_GOODS_ID_CACHE_TIME;
-            app('cache')->put($key, $data, $time);
-        }
-
-        return app('cache')->get($key, null);
-    }
-
 
 }

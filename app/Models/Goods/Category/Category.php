@@ -13,4 +13,12 @@ class Category extends Model
 
     protected $table = 'goods_category';
 
+    protected $hidden = [
+
+    ];
+
+    protected $appends = [
+
+    ];
+
 }

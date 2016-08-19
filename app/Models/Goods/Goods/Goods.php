@@ -17,7 +17,7 @@ class Goods extends Model
     /**
      * 隐藏字段
      */
-    protected $hidden = ['status', 'sort', 'style', 'keyword', 'description'];
+    protected $hidden = ['status', 'style', 'keyword', 'description'];
 
     /**
      * 追加字段
@@ -28,7 +28,6 @@ class Goods extends Model
         'price',            // 销售价
         'quantity',         // 数量
         'sales',            // 销量
-        'search_score',     // 搜索质量得分
         'only_sku',         // 单一SKU
         'only_sku_id',      // 单一SKU id
         'tag_thumb',        // 缩略图标签

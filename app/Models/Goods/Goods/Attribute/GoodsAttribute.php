@@ -49,9 +49,9 @@ trait GoodsAttribute
     /**
      * 搜索质量得分
      */
-    public function getSearchScoreAttribute()
+    public function getSortAttribute()
     {
-        $sort = $this->attributes['sort'];
+        $sort = $this->attributes['sort'] * 2;
 
         return $sort;
     }
