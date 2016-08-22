@@ -66,6 +66,7 @@ $app->singleton(
 $app->register(Dingo\Api\Provider\LumenServiceProvider::class);
 
 // 注册 Redis
+//$app->configure('database');
 $app->register(Illuminate\Redis\RedisServiceProvider::class);
 try {
     //app('config')->set('cache.default', 'redis'); // 在 .env 中设置
@@ -76,6 +77,9 @@ try {
     app('config')->set('cache.default', 'file');
     //die('Redis not work ...');
 }
+
+//app('redis')->set('a', 'value', 'ex', 5);
+ddd(app('redis')->get('a'));
 
 // 缓存常量
 require_once __DIR__.'/../app/Repositories/Caches/CacheKeysDefined.php';

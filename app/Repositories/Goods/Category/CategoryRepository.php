@@ -58,4 +58,16 @@ class CategoryRepository
     return json_decode(CategoryCacheRepository::getCategoryTreeOfMobile());
   }
 
+  /**
+   * 获取类目下的商品
+   *
+   * @return array
+   *
+   * @author AlpFish 2016/8/21 18:21
+   */
+  public static function getGoodsIdsByCid($cid)
+  {
+    return json_decode(CategoryCacheRepository::getGoodsIdsByCid($cid));
+  }
+
 }

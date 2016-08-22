@@ -47,53 +47,96 @@ class CategoryCacheRepository
    */
   public static function getCategoryTreeOfMobile()
   {
-    $key  = CATEGORY_TREE_OF_MOBILE_CACHE;
+    $key = CATEGORY_TREE_OF_MOBILE_CACHE;
 
     if (! app('cache')->has($key)) {
-      $tree = collect(json_decode(self::getCategoryAllItems()))->filter(function($parent){
-        return $parent->parent_id == 0;
-      })->map(function($parent){
-        return [
-          'cid'   => $parent->id,
-          'pid'   => $parent->parent_id,
-          'name'  => $parent->name,
-          'sort'  => $parent->sort,
-          'img'   => $parent->img,
-          'url'   => $parent->url,
-          'son'   => collect(json_decode(self::getCategoryAllItems()))->filter(function($son)use($parent){
-            return $son->parent_id == $parent->id;
-          })->map(function($son){
-            return [
-              'cid'   => $son->id,
-              'pid'   => $son->parent_id,
-              'name'  => $son->name,
-              'sort'  => $son->sort,
-              'img'   => $son->img,
-              'url'   => $son->url,
-              'end'   => collect(json_decode(self::getCategoryAllItems()))->filter(function($end)use($son){
-                return $end->parent_id == $son->id;
-              })->map(function($end) {
+      $tree = collect(json_decode(self::getCategoryAllItems()))
+        ->filter(function($parent){
+          return $parent->parent_id == 0 && $parent->status;
+        })
+        ->map(function($parent){
+          return [
+            'cid' => $parent->id,
+            'pid' => $parent->parent_id,
+            'name' => $parent->name,
+            'sort' => $parent->sort,
+            'img' => $parent->img,
+            'url' => $parent->url,
+            'son' => collect(json_decode(self::getCategoryAllItems()))
+              ->filter(function($son) use ($parent){
+                return $son->parent_id == $parent->id && $son->status;
+              })
+              ->map(function($son){
                 return [
-                  'cid'   => $end->id,
-                  'pid'   => $end->parent_id,
-                  'name'  => $end->name,
-                  'sort'  => $end->sort,
-                  'img'   => $end->img,
-                  'url'   => $end->url,
+                  'cid' => $son->id,
+                  'pid' => $son->parent_id,
+                  'name' => $son->name,
+                  'sort' => $son->sort,
+                  'img' => $son->img,
+                  'url' => $son->url,
+                  'end' => collect(json_decode(self::getCategoryAllItems()))
+                    ->filter(function($end) use ($son){
+                      return $end->parent_id == $son->id && $end->status;
+                    })
+                    ->map(function($end){
+                      return [
+                        'cid' => $end->id,
+                        'pid' => $end->parent_id,
+                        'name' => $end->name,
+                        'sort' => $end->sort,
+                        'img' => $end->img,
+                        'url' => $end->url,
+                      ];
+                    })
                 ];
               })
-            ];
-          })
-        ];
-      })->toJson();
+          ];
+        });
 
+      $push = collect([
+        'cid' => -1,
+        'pid' => -1,
+        'name' => '热门推荐',
+        'sort' => -1,
+        'img' => '',
+        'url' => '',
+        'son' => collect()->push(
+        // 推荐子类目，后面还可以添加其他自定义子类目，如热卖品牌等
+          [
+            'cid' => -1,
+            'pid' => -1,
+            'name' => '热门推荐',
+            'sort' => -1,
+            'img' => '',
+            'url' => '',
+            'end' => collect(json_decode(self::getCategoryAllItems()))
+              ->filter(function($item){
+                return $item->show_in_nav && $item->status; // 过滤推荐并启用的类目
+              })
+              ->map(function($end){
+                return [
+                  'cid' => $end->id,
+                  'pid' => $end->parent_id,
+                  'name' => $end->name,
+                  'sort' => $end->sort,
+                  'img' => $end->img,
+                  'url' => $end->url,
+                ];
+              })
+          ]
+        )
+      ]);
+
+      $tree->push($push)->toJson();
+
+      //ddd($tree);
       $time = CATEGORY_TREE_OF_MOBILE_CACHE_TIME;
       app('cache')->put($key, $tree, $time);
     }
 
     return app('cache')->get($key);
   }
-  
+
   /**
    * 使用 类目id 获取：该类目下的所有末端类目ids（含子类目）
    *
@@ -121,27 +164,6 @@ class CategoryCacheRepository
       } else{
         $ends = $all->whereLoose('parent_id', $cid)->pluck('id')->toJson();
       }
-
-      // 数组处理缓存数据
-      /*
-      $allCateData = json_decode(self::getCategoryAllItems());
-      $idsAndPids = array_map(function($item){
-          return array('id'=>$item->id, 'parent_id' => $item->parent_id);
-      }, $allCateData);
-
-      $pids = array_values(array_unique(array_column($idsAndPids, 'parent_id')));
-      if (! in_array($cid, $pids)) {
-          // cid 是叶目录
-          $ends = [(int) $cid];
-      } elseif ($cid == 0){
-          $ends = array_diff(array_values(array_column($idsAndPids, 'id')), $pids);
-      } else{
-          $ends = array_values(array_column(array_filter($idsAndPids, function($item) use($cid) {
-              return $item['parent_id'] == $cid;
-          }), 'id'));
-      }
-      */
-
       $time = END_CATEGORY_IDS_WITH_CATEGORY_ID_CACHE_TIME;
       app('cache')->put($key, $ends, $time);
     }
@@ -177,6 +199,53 @@ class CategoryCacheRepository
 
       $time = GOODS_IDS_AND_SORT_WITH_END_CID_CACHE_TIME;
       app('cache')->put($key, $result, $time);
+    }
+
+    return app('cache')->get($key);
+  }
+
+
+  // 类目的商品ids
+  public static function getGoodsIdsByCid($cid)
+  {
+    $key  = sprintf(CATEGORY_ID_GOODS_IDS, $cid);
+    $time = CATEGORY_ID_GOODS_IDS_TIME;
+
+    if (! app('cache')->has($key)) {
+      $goods_ids = [];
+      $end_cids  = json_decode(self::getEndCidsByCid($cid));
+      foreach ($end_cids as $end_cid){
+        $ids = Category::find($end_cid)->goods()->lists('id');
+        $goods_ids = array_merge($goods_ids, (array)$ids->all());
+      }
+      $goods_ids = json_encode(array_unique($goods_ids));
+
+      app('cache')->put($key, $goods_ids, $time);
+    }
+
+    return app('cache')->get($key);
+  }
+
+  // 类目的叶类目
+  public static function getEndCidsByCid($cid)
+  {
+    $key = sprintf(CATEGORY_ID_END_IDS, $cid);
+    if (! app('cache')->has($key)) {
+
+      $all = collect(json_decode(self::getCategoryAllItems()))->transform(function($item){
+        return $item = ['id' => $item->id, 'parent_id' => $item->parent_id];
+      });
+
+      $pids = $all->pluck('parent_id')->unique();
+      if (! $pids->contains($cid)) {
+        $ends = json_encode([$cid]);
+      } elseif ($cid == 0){
+        $ends = $all->pluck('id')->diff($pids)->flatten()->toJson();
+      } else{
+        $ends = $all->whereLoose('parent_id', $cid)->pluck('id')->toJson();
+      }
+      $time = CATEGORY_ID_END_IDS_TIME;
+      app('cache')->put($key, $ends, $time);
     }
 
     return app('cache')->get($key);

@@ -25,7 +25,7 @@ class GoodsCacheRepository
 
         if (! app('cache')->has($key)) {
             $data = null;
-            if ($item = Goods::find($id)){
+            if ($item = Goods::find($id)) {
                 // 使用 toJson() 获取模型实例会自动添加 $appends 中追加的访问器属性, 删除 $hidden 中的隐藏字段
                 $data = $item->toJson();
             }
@@ -51,7 +51,7 @@ class GoodsCacheRepository
         $key = GOODS_ITEM_OF_SEARCH_LIST_WITH_GOODS_ID_CACHE . $id;
 
         if (! app('cache')->has($key)) {
-            $item = collect(json_decode(self::getGoodsItemOfAllFieldsWithGoodsId($id)));
+            $item   = collect(json_decode(self::getGoodsItemOfAllFieldsWithGoodsId($id)));
             $filter = null;
             if (! $item->isEmpty() && $item->get('is_sale')) {
                 $filter = $item->only(
@@ -78,6 +78,35 @@ class GoodsCacheRepository
         }
 
         return app('cache')->get($key);
+    }
+
+    /**
+     * 获取商品元数据
+     *
+     * @param int    $id    主键
+     * @param string $field 字段名
+     *
+     * @return mixed
+     *
+     * @author AlpFish 2016/8/21 23:10
+     */
+    public static function getGoodsCell($id, $field)
+    {
+        $key  = sprintf('goods:%s:%s', $id, $field);
+        $time = 30 * 60;
+        if (! app('cache')->has($key)) {
+            if ($item = Goods::find($id)) {
+                $fields = array_keys($item->toArray());
+                foreach ($fields as $f){
+                    $k = sprintf('goods:%s:%s', $id, $f);
+                    app('cache')->put($k, $item->$f, $time);
+                }
+            } else{
+                app('cache')->put($key, null, $time);
+            }
+        }
+
+        return app('cache')->get($key, null);
     }
 
 }

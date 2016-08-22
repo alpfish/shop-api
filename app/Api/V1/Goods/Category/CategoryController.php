@@ -19,15 +19,18 @@ class CategoryController
    *
    * @apiParam    {string}  [origin=mobile]   请求来源, origin != mobile 则返回 PC 端类目展示列表数据
    *
-   * @apiSuccess  (响应失败) {array}      son         二级类目数据
-   * @apiSuccess  (响应失败) {array}      end         叶子类目数据
+   * @apiSuccess  (响应成功) {array}      son         子类目数组字段
+   * @apiSuccess  (响应成功) {array}      end         叶类目数组字段
    *
-   * @apiSuccess  (响应失败) {int}        id          id
-   * @apiSuccess  (响应失败) {int}        parent_id   父id
-   * @apiSuccess  (响应失败) {string}     name        名称
-   * @apiSuccess  (响应失败) {number}     sort        顺序
-   * @apiSuccess  (响应失败) {string}     img         图片地址
-   * @apiSuccess  (响应失败) {number}     url         链接地址，无商品类目只有单纯的链接
+   * *** 以下为各层级通用字段 ***
+   *
+   * @apiSuccess  (响应成功) {int}        id          id
+   * @apiSuccess  (响应成功) {int}        parent_id   父id
+   * @apiSuccess  (响应成功) {string}     name        名称
+   * @apiSuccess  (响应成功) {number}     sort        顺序
+   * @apiSuccess  (响应成功) {string}     img         图片地址
+   * @apiSuccess  (响应成功) {number}     url         链接地址，无商品类目只有单纯的链接
+   * @apiSuccess  (响应成功) {boolean}    end:push    是否推送/推荐（只有叶类目才有此字段）
    */
   public function getTree()
   {
