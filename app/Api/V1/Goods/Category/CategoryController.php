@@ -38,7 +38,7 @@ class CategoryController
     $origin = $query ? mb_strtolower($query) : 'mobile';
     if ('mobile' === $origin) {
       return array (
-        'categories' => CategoryRepository::getCategoryTreeOfMible()
+        'categories' => CategoryRepository::getTreeOfMible()
       );
     }
 

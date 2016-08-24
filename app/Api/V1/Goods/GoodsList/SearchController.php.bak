@@ -23,19 +23,18 @@ namespace App\Api\V1\Goods\GoodsList;
  *
  * 4. 获取商品列表数据
  *    按返回客户端的ids集从商品缓存中获取商品列表数据
- *    [性能]直接从缓存getCell()获取商品数据
+ *    [性能]直接从缓存getGoodsCell()获取商品数据
  *
  * 性能提升：
  *
  * 1. 以上缓存键主要作用是分化搜索数据到内存，降低数据库压力
  * 2. 搜索参数为键，搜索结果为值对每个搜索进行缓存，可以大大降低服务器的处理压力，
  *    每次搜索请求从缓存中取出结果直接响应到客服端即可。
- *    备注：因为第一点已经大大提升了性能，大多请求都在1s内完成。故服务器压力不大时无需缓存搜索结果。
  *
  * */
+
 use App\Repositories\Goods\Category\CategoryRepository;
 use App\Repositories\Goods\Goods\GoodsRepository as Goods;
-use App\Repositories\Caches\RedisKeys as Keys;
 
 class SearchController
 {
@@ -85,7 +84,9 @@ class SearchController
     protected $keywords = null;
     protected $sort     = 'sort';
     protected $page     = 1;
-    protected $per_page = 100;
+    protected $per_page = 3;
+
+    protected $cache_time = 60 * 30;
 
     public function __construct()
     {
@@ -98,24 +99,35 @@ class SearchController
 
     public function index()
     {
-        $ids   = $this->getGoodsIds();
-        $total = count($ids);
 
-        // sort and page
-        $ids = $this->filterGoodsIds($ids);
+        $key = $this->getSearchKey();
+        d(app('redis')->get($key));
+        if (! app('cache')->has($key)) {
+            // get ids
+            $ids   = $this->getGoodsIds();
+            $total = count($ids);
 
-        // get goods
-        $goods = $this->getGoodsByIds($ids);
+            // sort and page
+            $ids = $this->filterGoodsIds($ids);
 
-        // data
-        $data = [
-            'total' => $total,
-            'page' => $this->page,
-            'per_page' => $this->per_page,
-            'goods' => $goods,
-        ];
+            // get goods
+            $goods = $this->getGoodsByIds($ids);
 
-        return $data;
+            // data
+            $data = json_encode([
+                'total' => $total,
+                'page' => $this->page,
+                'per_page' => $this->per_page,
+                'goods' => $goods,
+            ]);
+
+            // cache
+            app('cache')->put($key, $data, $this->cache_time);
+            app('redis')->set($key, $data);
+
+        }
+ddd('Search Index:',timer()-START);
+        return app('cache')->get($key);
     }
 
     protected function setSearchParams()
@@ -128,6 +140,19 @@ class SearchController
         $this->sort     = $r->has('sort') && in_array(mb_strtolower($r->sort), ['sd', 'pa', 'pd']) ? mb_strtolower($r->sort) : $this->sort;
         $this->page     = $r->has('page') ? (int)$r->page : $this->page;
         $this->per_page = $r->has('per_page') ? (int)$r->per_page : $this->per_page;
+    }
+
+    protected function getSearchKey()
+    {
+        $key = 'goods.search';
+        $key .= is_null($this->cid) ? '' : ':cid:' . $this->cid;
+        $key .= is_null($this->brand_id) ? '' : ':brand_id:' . $this->brand_id;
+        $key .= is_null($this->keywords) ? '' : ':keywords:' . $this->keywords;
+        $key .= ':sort:' . $this->sort;
+        $key .= ':page:' . $this->page;
+        $key .= ':per_page:' . $this->per_page;
+
+        return $key;
     }
 
     protected function getGoodsIds()
@@ -153,25 +178,12 @@ class SearchController
             $direction  = 1;
         }
 
-        //        $start = timer();
-        //        for($i=0; $i<1; $i++) {
-        //
-        //            $order = Goods::getOrderByIds($ids, $this->sort, 'dec');
-        //        }
-        //        ddd(timer() - $start, $order);
+        usort($ids, function($a, $b) use ($direction){
+            $a = Goods::getGoodsCell($a, $this->sort);
+            $b = Goods::getGoodsCell($b, $this->sort);
 
-        //-------------------------
-
-        $start = timer();
-        for ($i = 0; $i < 1; $i++){
-            usort($ids, function($a, $b) use ($direction){
-                $a = Goods::getCell($a, $this->sort);
-                $b = Goods::getCell($b, $this->sort);
-
-                return ($a > $b) ? $direction : -$direction;
-            });
-        }
-        //ddd(timer() - $start, $ids);
+            return ($a > $b) ? $direction : -$direction;
+        });
 
         $res = collect($ids)->forPage($this->page, $this->per_page)->all();
 
@@ -182,24 +194,21 @@ class SearchController
     {
         $goods = [];
         foreach ($ids as $id){
-            $goods[] = Goods::getCell(
-                $id,
-                [
-                    'id',
-                    'name',         // 商品名
-                    'thumb',        // 缩略图
-                    'orig',         // 原价
-                    'price',        // 销售价
-                    'quantity',     // 数量
-                    'sales',        // 销量
-                    'sort',         // 排序
-                    'only_sku',     // 单一SKU
-                    'only_sku_id',  // 单一SKU id
-                    'tag_thumb',    // 缩略图标签
-                    'tag_prom',     // 优惠促销标签
-                    'features',     // 特征卖点标签
-                ]
-            );
+            $goods[] = [
+                'id' => Goods::getGoodsCell($id, 'id'),
+                'name' => Goods::getGoodsCell($id, 'name'),             // 商品名
+                'thumb' => Goods::getGoodsCell($id, 'thumb'),            // 缩略图
+                'orig' => Goods::getGoodsCell($id, 'orig'),             // 原价
+                'price' => Goods::getGoodsCell($id, 'price'),            // 销售价
+                'quantity' => Goods::getGoodsCell($id, 'quantity'),         // 数量
+                'sales' => Goods::getGoodsCell($id, 'sales'),            // 销量
+                'sort' => Goods::getGoodsCell($id, 'sort'),             // 排序
+                'only_sku' => Goods::getGoodsCell($id, 'only_sku'),         // 单一SKU
+                'only_sku_id' => Goods::getGoodsCell($id, 'only_sku_id'),    // 单一SKU id
+                'tag_thumb' => Goods::getGoodsCell($id, 'tag_thumb'),        // 缩略图标签
+                'tag_prom' => Goods::getGoodsCell($id, 'tag_prom'),         // 优惠促销标签
+                'features' => Goods::getGoodsCell($id, 'features')          // 特征卖点标签
+            ];
         }
 
         return $goods;

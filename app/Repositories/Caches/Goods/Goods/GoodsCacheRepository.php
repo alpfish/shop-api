@@ -4,109 +4,105 @@
 namespace App\Repositories\Caches\Goods\Goods;
 
 use App\Models\Goods\Goods\Goods;
+use App\Repositories\Caches\RedisKeys as Keys;
 
 class GoodsCacheRepository
 {
-
     /**
-     * 用 商品id 获取缓存中的: 所有字段下的商品条目
+     * 获取元数据 （HASH结构）
      *
-     * 数据来源于 Goods 模型，缓存中其他商品条目数据均来源于此。
+     * 可以获取数据库表原型字段和模型中使用get()方法自定义的字段数据，
+     * 但使用缓存仓库中的计算方法得出的字段数据不要通过该方法获取，必须用相关方法获取，
+     * 因为获取时有可能还未添加该字段到缓存中，会返回空。
      *
-     * @param int $id spu_id
+     * @param int          $id     主键
+     * @param string|array $fields 字段名
      *
-     * @return string JSON
+     * @return string|array 一个字段则直接返回字段值，多个值返回字段名 => 字段值的数组格式数据。
      *
-     * @author AlpFish 2016/8/14 8:20
+     * @author AlpFish 2016/8/22 21:10
      */
-    public static function getGoodsItemOfAllFieldsWithGoodsId($id)
+    public static function getCell($id, $fields)
     {
-        $key = GOODS_ITEM_OF_ALL_FIELDS_WITH_GOODS_ID_CACHE . $id;
+        $key = sprintf(Keys::GOODS_CELLS_ID[ 'key' ], $id);
 
-        if (! app('cache')->has($key)) {
-            $data = null;
+        if (! app('redis')->exists($key)) {
             if ($item = Goods::find($id)) {
-                // 使用 toJson() 获取模型实例会自动添加 $appends 中追加的访问器属性, 删除 $hidden 中的隐藏字段
-                $data = $item->toJson();
+                $_fields = array_keys($item->toArray());
+                app('redis')->pipeline(function($pipe) use ($key, $_fields, $item){
+                    foreach ($_fields as $f){
+                        $pipe->hset($key, $f, $item->$f);
+                    }
+                });
+                $time = Keys::GOODS_CELLS_ID[ 'time' ];
+                app('redis')->expire($key, $time);
             }
-
-            $time = GOODS_ITEM_OF_ALL_FIELDS_WITH_GOODS_ID_CACHE_TIME;
-            app('cache')->put($key, $data, $time);
         }
+        $data = is_array($fields)
+            ? array_combine($fields, app('redis')->hmget($key, $fields))
+            : app('redis')->hget($key, $fields);
 
-        return app('cache')->get($key, null);
+        return $data;
     }
 
     /**
-     * 用 商品id 获取缓存中: 搜索列表项下的商品条目
+     * 排序所给商品ids
      *
-     * @param int $id spu_id
+     * @param array  $ids
+     * @param string $field = sort 排序字段: sales, price, sort
+     * @param string $order = asc  排序顺序: sales, price, sort
      *
-     * @return string JSON
+     * @return array $ids
      *
-     * @author AlpFish 2016/8/13 9:29
+     * @author AlpFish 2016/8/23 20:04
      */
-    public static function getGoodsItemOfSearchListWithGoodsId($id)
+    public static function getOrderByIds($ids = array (), $field = 'sort', $order = 'asc')
     {
-        $key = GOODS_ITEM_OF_SEARCH_LIST_WITH_GOODS_ID_CACHE . $id;
-
-        if (! app('cache')->has($key)) {
-            $item   = collect(json_decode(self::getGoodsItemOfAllFieldsWithGoodsId($id)));
-            $filter = null;
-            if (! $item->isEmpty() && $item->get('is_sale')) {
-                $filter = $item->only(
-                    'id',
-                    'name',             // 商品名
-                    'thumb',            // 缩略图
-                    'orig',             // 原价
-                    'price',            // 销售价
-                    'quantity',         // 数量
-                    'sales',            // 销量
-                    'sort',             // 排序
-                    'only_sku',         // 单一SKU
-                    'only_sku_id',      // 单一SKU id
-                    'tag_thumb',        // 缩略图标签
-                    'tag_prom',         // 优惠促销标签
-                    'features'          // 特征卖点标签
-
-                );
-            }
-            $filter = json_encode($filter);
-
-            $time = GOODS_ITEM_OF_SEARCH_LIST_WITH_GOODS_ID_CACHE_TIME;
-            app('cache')->put($key, $filter, $time);
-        }
-
-        return app('cache')->get($key);
-    }
-
-    /**
-     * 获取商品元数据
-     *
-     * @param int    $id    主键
-     * @param string $field 字段名
-     *
-     * @return mixed
-     *
-     * @author AlpFish 2016/8/21 23:10
-     */
-    public static function getGoodsCell($id, $field)
-    {
-        $key  = sprintf('goods:%s:%s', $id, $field);
-        $time = 30 * 60;
-        if (! app('cache')->has($key)) {
-            if ($item = Goods::find($id)) {
-                $fields = array_keys($item->toArray());
-                foreach ($fields as $f){
-                    $k = sprintf('goods:%s:%s', $id, $f);
-                    app('cache')->put($k, $item->$f, $time);
+        $order = strtolower($order) == 'asc' ? 'asc' : 'dec';
+        switch (strtolower($field)){
+            case 'sales':
+                $key   = Keys::GOODS_SORTED_SALES[ 'key' ];
+                $field = 'sales';
+                if (! app('redis')->exists($key)) {
+                    $time = Keys::GOODS_SORTED_SALES[ 'time' ];
+                    app('redis')->zadd($key, 0, 0);
+                    app('redis')->expire($key, $time);
                 }
-            } else{
-                app('cache')->put($key, null, $time);
-            }
+                break;
+            case 'price':
+                $key   = Keys::GOODS_SORTED_PRICE[ 'key' ];
+                $field = 'price';
+                if (! app('redis')->exists($key)) {
+                    $time = Keys::GOODS_SORTED_PRICE[ 'time' ];
+                    app('redis')->zadd($key, 0, 0);
+                    app('redis')->expire($key, $time);
+                }
+                break;
+            default:
+                $key   = Keys::GOODS_SORTED_SORT[ 'key' ];
+                $field = 'sort';
+                if (! app('redis')->exists($key)) {
+                    $time = Keys::GOODS_SORTED_SORT[ 'time' ];
+                    app('redis')->zadd($key, 0, 0);
+                    app('redis')->expire($key, $time);
+                }
         }
 
-        return app('cache')->get($key, null);
-    }
+        $z   = $order == 'asc' ? app('redis')->zrange($key, 0, -1, 'WITHSCORES') : app('redis')->zrevrange($key, 0, -1, 'WITHSCORES');
+        $add = array_diff($ids, array_keys($z));  //值比较
+        if ($add) {
+            $pipes = app('redis')->pipeline(function($pipe) use ($add, $key, $field){
+                foreach ($add as $id){
+                    $score = self::getGoodsCell($id, $field);
+                    $pipe->zadd($key, $score, $id);
+                }
+            });
 
+            $z = $order == 'asc' ? app('redis')->zrange($key, 0, -1, 'WITHSCORES') : app('redis')->zrevrange($key, 0, -1, 'WITHSCORES');
+        }
+        $sorted_ids = array_intersect_key($z, array_flip($ids)); // 键比较求交集，需反转$ids
+
+        //ddd($z, $ids, $add, $sorted);
+        return array_keys($sorted_ids);
+    }
 }
