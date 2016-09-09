@@ -1,0 +1,2 @@
+webpackJsonp([4,6],{115:function(e,t){e.exports=" <div> <p>用户中心</p> </div> "},163:function(e,t){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t["default"]={components:{}}},172:function(e,t,o){var p,s;p=o(163),s=o(115),e.exports=p||{},e.exports.__esModule&&(e.exports=e.exports["default"]),s&&(("function"==typeof e.exports?e.exports.options||(e.exports.options={}):e.exports).template=s)}});
+//# sourceMappingURL=4.dd18452b4b671231810e.js.map

@@ -17,9 +17,19 @@ $api->version('v1', function($api){
     $api->get('/goods/search', 'App\Api\V1\Goods\GoodsList\SearchController@index');
     $api->get('/goods/category/tree', 'App\Api\V1\Goods\Category\CategoryController@getTree');
 
+    $api->group(['prefix' => 'member', 'namespace' => 'Api\V1\Member'], function($api){
+
+        $api->post('register', 'AuthenticateController@register');   # 注册
+        $api->post('login', 'AuthenticateController@login');        # 登录
+
+        $api->group(['middleware' => 'token.auth'], function($api){
+            $api->get('logout', 'AuthenticateController@logout');       # 退出登录
+            $api->get('/', 'MemberController@getUser');                        # 查看个人信息
+        });
+
+    });
+
 });
-
-
 
 
 /*
@@ -32,7 +42,18 @@ $api->version('v1', function($api){
 | and give it the Closure to call when that URI is requested.
 |
 */
+use App\Models\Member\Member\Member;
+use App\Repositories\Member\MemberRepository;
 
 $app->get('/', function(){
-    echo 'Api Home!';
+
+    echo MemberRepository::setToken(Member::first());
+
+    //    echo 'Api Home!';
+    $jwt = app('tymon.jwt');
+    //    $factory = app('tymon.jwt.payload.factory');
+    //
+    //    $token = $jwt->encode($factory->sub(1)->make());
+    //
+    //    ddd($token);
 });

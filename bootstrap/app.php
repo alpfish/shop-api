@@ -11,9 +11,6 @@ define('START', timer());
 // 自动加载
 require_once __DIR__.'/../vendor/autoload.php';
 
-// 跨域请求
-header("Access-Control-Allow-Origin: *");
-
 // 使用 .env （生产环境如性能需求，可直接将配置写入包中）
 try {
     (new Dotenv\Dotenv(__DIR__.'/../'))->load();
@@ -36,9 +33,10 @@ $app = new Laravel\Lumen\Application(
     realpath(__DIR__.'/../')
 );
 
-// 使用 app('db') 辅助方法代替门面提升性能
 // $app->withFacades();
+// 使用 app('db') 代替 DB 门面
 
+// Eloquent
 $app->withEloquent();
 
 /*
@@ -62,20 +60,6 @@ $app->singleton(
     App\Console\Kernel::class
 );
 
-// 注册 Dingo Api
-$app->register(Dingo\Api\Provider\LumenServiceProvider::class);
-
-// 注册 Redis
-$app->register(Illuminate\Redis\RedisServiceProvider::class);
-try {
-    //app('config')->set('cache.default', 'redis'); // 在 .env 中设置
-    if (! app('redis')->set('foo', 'bar', 'px', 10)) {
-        throw new Exception('Redis not working ...');
-    }
-} catch (Exception $e) {
-    //app('config')->set('cache.default', 'file');
-    die('Redis not working ...');
-}
 
 /*
 |--------------------------------------------------------------------------
@@ -88,13 +72,16 @@ try {
 |
 */
 
-// $app->middleware([
-//    App\Http\Middleware\ExampleMiddleware::class
-// ]);
+$app->middleware([
+    // 使用 CORS 处理跨域请求 及 使用 Authorization 头
+    App\Http\Middleware\Cors::class,
+]);
 
-// $app->routeMiddleware([
-//     'auth' => App\Http\Middleware\Authenticate::class,
-// ]);
+$app->routeMiddleware([
+    // api 认证中间件, 避免与 dingo/api 和 tymon/jwt-auth 已注册的名称重名
+    'token.auth' => App\Http\Middleware\TokenAuth::class,
+    // 'auth' => App\Http\Middleware\Authenticate::class,
+]);
 
 /*
 |--------------------------------------------------------------------------
@@ -111,6 +98,24 @@ try {
 // $app->register(App\Providers\AuthServiceProvider::class);
 // $app->register(App\Providers\EventServiceProvider::class);
 
+// 注册 Redis
+$app->register(Illuminate\Redis\RedisServiceProvider::class);
+try {
+    //app('config')->set('cache.default', 'redis'); // 在 .env 中设置
+    if (! app('redis')->set('foo', 'bar', 'px', 10)) {
+        throw new Exception('Redis not working ...');
+    }
+} catch (Exception $e) {
+    //app('config')->set('cache.default', 'file');
+    die('Redis not working ...');
+}
+
+// dingo/api
+$app->register(Dingo\Api\Provider\LumenServiceProvider::class);
+
+// jwt（借用 jwt 实现自定义认证系统，全局辅助函数 auth_user() ，不使用Lumen|dingo|jwt的认证系统）
+$app->register(Tymon\JWTAuth\Providers\LumenServiceProvider::class);
+
 /*
 |--------------------------------------------------------------------------
 | Load The Application Routes
@@ -126,10 +131,5 @@ $app->group(['namespace' => 'App\Http\Controllers'], function ($app) {
     require __DIR__.'/../app/Http/routes.php';
 });
 
-// 直接访问 public 模式
-//$request = Illuminate\Http\Request::capture();
-//$app->run($request);
-
-// 重写模式
 return $app;
 

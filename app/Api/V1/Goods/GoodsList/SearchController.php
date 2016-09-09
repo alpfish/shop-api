@@ -1,5 +1,5 @@
 <?php
-namespace App\Api\V1\Goods\GoodsList;
+namespace Api\V1\Goods\GoodsList;
 
 /*******************************************************************************************
  *
@@ -35,10 +35,25 @@ namespace App\Api\V1\Goods\GoodsList;
  * */
 use App\Repositories\Goods\Category\CategoryRepository;
 use App\Repositories\Goods\Goods\GoodsRepository as Goods;
-use App\Repositories\Caches\RedisKeys as Keys;
 
 class SearchController
 {
+    protected $cid      = null;
+    protected $brand_id = null;
+    protected $keywords = null;
+    protected $sort     = 'sort';
+    protected $page     = 1;
+    protected $per_page = 100;
+
+    public function __construct()
+    {
+        $this->setSearchParams();
+
+        if (is_null($this->cid) && is_null($this->keywords) && is_null($this->brand_id)) {
+            throw new \Symfony\Component\HttpKernel\Exception\BadRequestHttpException('搜索请求参数必须含有以下其中一个：cid, keywords, brand_id');
+        }
+    }
+
     /****************************************************************************************
      * 商品搜索 API
      *
@@ -80,42 +95,24 @@ class SearchController
      * @apiError    (响应错误) {string}     message        响应失败状态信息
      * @apiError    (响应错误) {array}      errors         响应失败错误信息
      */
-    protected $cid      = null;
-    protected $brand_id = null;
-    protected $keywords = null;
-    protected $sort     = 'sort';
-    protected $page     = 1;
-    protected $per_page = 100;
-
-    public function __construct()
-    {
-        $this->setSearchParams();
-
-        if (is_null($this->cid) && is_null($this->keywords) && is_null($this->brand_id)) {
-            throw new \Symfony\Component\HttpKernel\Exception\BadRequestHttpException('搜索请求参数必须含有以下其中一个：cid, keywords, brand_id');
-        }
-    }
-
     public function index()
     {
-        $ids   = $this->getGoodsIds();
-        $total = count($ids);
+        // searched  //此处可缓存
+        $ids = $this->getGoodsIds();
 
         // sort and page
-        $ids = $this->filterGoodsIds($ids);
+        $filteredIds = $this->filterGoodsIds($ids);
 
         // get goods
-        $goods = $this->getGoodsByIds($ids);
+        // $goods = $this->getGoodsByIds($filteredIds);
 
         // data
-        $data = [
-            'total' => $total,
+        return [
+            'total' => count($ids),
             'page' => $this->page,
             'per_page' => $this->per_page,
-            'goods' => $goods,
+            'goods' => $this->getGoodsByIds($filteredIds),
         ];
-
-        return $data;
     }
 
     protected function setSearchParams()
@@ -141,41 +138,19 @@ class SearchController
 
     protected function filterGoodsIds($ids)
     {
-        $direction = -1; //降序
+        $direction = 'asc';
         if ($this->sort === 'sd') {
             $this->sort = 'sales';
-        }
-        if ($this->sort === 'pd') {
+        } elseif ($this->sort === 'pa'){
             $this->sort = 'price';
-        }
-        if ($this->sort === 'pa') {
+        } elseif ($this->sort === 'pd'){
             $this->sort = 'price';
-            $direction  = 1;
+            $direction  = 'dec';
         }
 
-        //        $start = timer();
-        //        for($i=0; $i<1; $i++) {
-        //
-        //            $order = Goods::getOrderByIds($ids, $this->sort, 'dec');
-        //        }
-        //        ddd(timer() - $start, $order);
+        $ids = Goods::getOrderByIds($ids, $this->sort, $direction);
 
-        //-------------------------
-
-        $start = timer();
-        for ($i = 0; $i < 1; $i++){
-            usort($ids, function($a, $b) use ($direction){
-                $a = Goods::getCell($a, $this->sort);
-                $b = Goods::getCell($b, $this->sort);
-
-                return ($a > $b) ? $direction : -$direction;
-            });
-        }
-        //ddd(timer() - $start, $ids);
-
-        $res = collect($ids)->forPage($this->page, $this->per_page)->all();
-
-        return $res;
+        return collect($ids)->forPage($this->page, $this->per_page)->all();
     }
 
     protected function getGoodsByIds($ids)

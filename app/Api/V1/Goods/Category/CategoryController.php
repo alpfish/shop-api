@@ -1,5 +1,5 @@
 <?php
-namespace App\Api\V1\Goods\Category;
+namespace Api\V1\Goods\Category;
 
 use App\Repositories\Goods\Category\CategoryRepository;
 
@@ -38,7 +38,7 @@ class CategoryController
     $origin = $query ? mb_strtolower($query) : 'mobile';
     if ('mobile' === $origin) {
       return array (
-        'categories' => CategoryRepository::getTreeOfMible()
+        'categories' => CategoryRepository::getTreeOfMobile()
       );
     }
 

@@ -25,7 +25,7 @@ class CategoryCacheRepository
     {
         $key = sprintf(Keys::CATEGORY_CELLS_ID[ 'key' ], $id);
 
-        if (! app('redis')->exists($key)) {
+        if ( !app('redis')->exists($key)) {
             if ($item = Category::find($id)) {
                 $fs = array_keys($item->toArray());
                 app('redis')->pipeline(function($pipe) use ($key, $fs, $item){
@@ -54,7 +54,7 @@ class CategoryCacheRepository
     public static function getIds()
     {
         $key = Keys::CATEGORY_SETS_IDS[ 'key' ];
-        if (! app('redis')->exists($key)) {
+        if ( !app('redis')->exists($key)) {
             $ids = Category::lists('id')->all();
             // 管道有效
             app('redis')->pipeline(function($pipe) use ($ids, $key){
@@ -81,7 +81,7 @@ class CategoryCacheRepository
     public static function getPids()
     {
         $key = Keys::CATEGORY_SETS_PIDS[ 'key' ];
-        if (! app('redis')->exists($key)) {
+        if ( !app('redis')->exists($key)) {
 
             $pids  = Category::lists('parent_id')->unique()->all();
             $pipes = app('redis')->pipeline(function($pipe) use ($key, $pids){
@@ -98,6 +98,46 @@ class CategoryCacheRepository
     }
 
     /**
+     * 类目 id 下的叶类目
+     *
+     * @param int $cid
+     *
+     * @return array
+     *
+     * @author AlpFish 2016/8/22 23:40
+     */
+    public static function getEndCidsByCid($cid)
+    {
+        $cell  = sprintf(Keys::CATEGORY_CELLS_ID[ 'key' ], $cid);
+        $field = 'end_ids';
+        if ( !app('redis')->hexists($cell, $field)) {
+
+            $cids = self::getIds();
+            $pids = self::getPids();
+            if ( !in_array($cid, $pids)) {
+                $ends = [$cid];
+            } elseif ($cid == 0){
+                $ends = array_values(array_diff($cids, $pids));
+            } else{
+                $ends = [];
+                foreach ($cids as $id){
+                    if (self::getCell($id, 'parent_id') == $cid) {
+                        $ends[] = $id;
+                    }
+                };
+            }
+            $ends = json_encode($ends);
+            app('redis')->hset($cell, $field, $ends);
+            $time = Keys::CATEGORY_CELLS_ID[ 'time' ];
+            if (app('redis')->TTL($cell) === -1) {
+                app('redis')->expire($cell, $time);
+            }
+        }
+
+        return json_decode(app('redis')->hget($cell, $field));
+    }
+
+    /**
      * 类目 id 下的商品ids (包括子类目)
      *
      * @param int $cid
@@ -111,7 +151,7 @@ class CategoryCacheRepository
         $cells = sprintf(Keys::CATEGORY_CELLS_ID[ 'key' ], $cid);
         $field = 'goods_ids';
 
-        if (! app('redis')->hexists($cells, $field)) {
+        if ( !app('redis')->hexists($cells, $field)) {
             $goods_ids = [];
             $end_cids  = self::getEndCidsByCid($cid);
             foreach ($end_cids as $end_cid){
@@ -121,58 +161,26 @@ class CategoryCacheRepository
             $goods_ids = json_encode(array_unique($goods_ids));
 
             app('redis')->hset($cells, $field, $goods_ids);
+            $time = Keys::CATEGORY_CELLS_ID[ 'time' ];
+            if (app('redis')->TTL($cells) === -1) {
+                app('redis')->expire($cells, $time);
+            }
         }
 
         return json_decode(app('redis')->hget($cells, $field));
     }
 
     /**
-     * 类目 id 下的叶类目
-     *
-     * @param int $cid
-     *
-     * @return array
-     *
-     * @author AlpFish 2016/8/22 23:40
-     */
-    public static function getEndCidsByCid($cid)
-    {
-        $cell  = sprintf(Keys::CATEGORY_CELLS_ID[ 'key' ], $cid);
-        $field = 'end_ids';
-        if (! app('redis')->hexists($cell, $field)) {
-
-            $cids = self::getIds();
-            $pids = self::getPids();
-            if (! in_array($cid, $pids)) {
-                $ends = [$cid];
-            } elseif ($cid == 0){
-                $ends = array_values(array_diff($cids, $pids));
-            } else{
-                $ends = [];
-                foreach ($cids as $id){
-                    if ($cid == self::getCell($id, 'parent_id')) {
-                        $ends[] = $id;
-                    }
-                };
-            }
-            $ends = json_encode($ends);
-            app('redis')->hset($cell, $field, $ends);
-        }
-
-        return json_decode(app('redis')->hget($cell, $field));
-    }
-
-    /**
      * 获取类目树型结构
      *
-     * @return strin JSON
+     * @return Array
      *
      * @author AlpFish 2016/8/19 7:33
      */
     public static function getTreeOfMobile()
     {
         $key = Keys::CATEGORY_STRS_TREE[ 'key' ];
-        if (! $tree = app('redis')->get($key)) {
+        if ( !$tree = app('redis')->get($key)) {
             $all  = Category::select('id', 'parent_id', 'name', 'sort', 'img', 'url', 'status', 'show_in_nav')->get();
             $tree = $all->filter(function($parent){
                 return $parent->parent_id == 0 && $parent->status;
@@ -244,7 +252,7 @@ class CategoryCacheRepository
             ]);
             $tree = $tree->push($push)->toJson();
 
-            $time = Keys::CATEGORY_STRS_TREE['time'];
+            $time = Keys::CATEGORY_STRS_TREE[ 'time' ];
             app('redis')->set($key, $tree, 'ex', $time);
         }
 

@@ -14,7 +14,7 @@ class CategoryRepository
    *
    * @author AlpFish 2016/8/19 7:33
    */
-  public static function getTreeOfMible()
+  public static function getTreeOfMobile()
   {
     return CategoryCacheRepository::getTreeOfMobile();
   }

@@ -93,7 +93,7 @@ class GoodsCacheRepository
         if ($add) {
             $pipes = app('redis')->pipeline(function($pipe) use ($add, $key, $field){
                 foreach ($add as $id){
-                    $score = self::getGoodsCell($id, $field);
+                    $score = self::getCell($id, $field);
                     $pipe->zadd($key, $score, $id);
                 }
             });
