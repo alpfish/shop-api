@@ -9,7 +9,7 @@ class MemberController extends Controller
 {
     public function getUser()
     {
-        return Member::tokenUser();
+        return Member::tokenMember();
     }
 
 }

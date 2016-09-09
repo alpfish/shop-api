@@ -21,7 +21,7 @@ class TokenAuth
      */
     public function handle($request, Closure $next)
     {
-        if (!auth_user()) {
+        if (!auth_member()) {
             return response('Unauthorized.', 401);
             // throw new \Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException('认证失败.');
         }
