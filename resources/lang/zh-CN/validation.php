@@ -95,7 +95,7 @@ return [
     |
     */
 
-    'custom'               => [
+    'custom' => [
         'attribute-name' => [
             'rule-name' => 'custom-message',
         ],
@@ -112,7 +112,7 @@ return [
     |
     */
 
-    'attributes'           => [
+    'attributes' => [
         'name'                  => '名称',
         'username'              => '用户名',
         'email'                 => '邮箱',
@@ -143,6 +143,8 @@ return [
         'available'             => '可用的',
         'size'                  => '大小',
         'vcode'                 => '短信验证码',
+        'quantity'              => '数量',
+
     ],
 
 ];

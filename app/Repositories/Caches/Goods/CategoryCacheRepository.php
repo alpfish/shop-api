@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Repositories\Caches\Goods\Category;
+namespace App\Repositories\Caches\Goods;
 
 use App\Repositories\Caches\RedisKeys as Keys;
 use App\Models\Goods\Category\Category;

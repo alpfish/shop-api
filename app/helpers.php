@@ -10,7 +10,11 @@ if (! function_exists('auth_member')) {
      */
     function auth_member()
     {
-        return App\Repositories\Member\MemberRepository::tokenMember();
+        static $member = 'Unauthorized';
+        if ($member === 'Unauthorized') {
+            $member = App\Repositories\Member\MemberRepository::tokenMember();
+        }
+        return $member;
     }
 }
 

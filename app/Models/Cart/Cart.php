@@ -1,23 +1,18 @@
 <?php
 
+namespace App\Models\Cart;
 
-namespace App\Models\Member\Member;
-
-use App\Models\Member\Member\Attribute\MemberAttribute;
-use App\Models\Member\Member\Relation\MemberRelation;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
+use App\Models\Cart\Relation\CartRelation;
 
-class Member extends Model
+class Cart extends  Model
 {
-    use MemberAttribute,
-        MemberRelation;
+    use CartRelation;
 
-    protected $table = 'member';
+    protected $table = 'cart';
 
-    protected $hidden = ['password', 'encrypt'];
-
-    protected $guarded = ['id'];
+    protected $hidden = [];
 
     /**
      * 禁用时间戳
@@ -42,15 +37,15 @@ class Member extends Model
         /**
          * 全局查询作用域
          *
-         * 默认获取未被禁用的会员:
+         * 默认获取已认证用户的记录:
          *
-         * Member::all(); 生成的SQL语句为： select * from `member` where `islock` = 0
+         * Cart::all(); 生成的SQL语句为： select * from `cart` where `buyer_id` = '123***'
          *
          * 查询时移除方法：
-         * Member::withoutGlobalScope('notlock')->get();
-         */
-        static::addGlobalScope('notlock', function(Builder $builder) {
-            $builder->whereIslock(0);
+         * Cart::withoutGlobalScope('auth_member')->get();
+        */
+        static::addGlobalScope('auth_member', function(Builder $builder) {
+            $builder->whereBuyerId(auth_member()->id);
         });
     }
 

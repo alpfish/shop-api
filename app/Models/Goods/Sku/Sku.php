@@ -2,12 +2,19 @@
 namespace App\Models\Goods\Sku;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use App\Models\Goods\Sku\Attribute\SkuAttribute;
 use App\Models\Goods\Sku\Relation\SkuRelation;
+
 class Sku extends Model
 {
     use SkuAttribute,
         SkuRelation;
+
+    /**
+     * 主键
+     */
+    protected $primaryKey = 'sku_id';
 
     /**
      * 表名称
@@ -24,5 +31,28 @@ class Sku extends Model
      */
     public $timestamps = false;
 
+    /**
+     * 模型引导
+     * The "booting" method of the model.
+     *
+     * @return void
+     */
+    protected static function boot()
+    {
+        parent::boot();
 
+        /**
+         * 查询全局作用域
+         *
+         * 默认获取已上架 sku 的记录:
+         *
+         * Sku::all(); 生成的SQL语句为： select * from `goods_sku` where `status` = 1
+         *
+         * 查询时移除方法：
+         * Cart::withoutGlobalScope('on_sale')->get();
+         */
+        static::addGlobalScope('on_sale', function(Builder $builder) {
+            $builder->whereStatus(1);
+        });
+    }
 }

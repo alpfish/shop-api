@@ -1,7 +1,7 @@
 <?php
 namespace Api\V1\Goods\Category;
 
-use App\Repositories\Goods\Category\CategoryRepository;
+use App\Repositories\Goods\CategoryRepository;
 
 class CategoryController
 {

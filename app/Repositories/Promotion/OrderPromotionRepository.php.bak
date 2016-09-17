@@ -1,0 +1,116 @@
+<?php
+
+namespace App\Repositories\Promotion;
+
+use App\Models\Promotion\OrderPromotion\OrderPromotion;
+use Exception;
+
+class OrderPromotionRepository
+{
+    /**
+     * 订单促销结算(要返回订单满足条件的促销条目)
+     *
+     * 多个活动时支持系统自动选择，前台顾客可自由选择。
+     * 支持打折(已参加促销的商品除外)，最高50%OFF，在后台设置满1元减0.XX元即可。
+     *
+     * @param int   $prom_id    活动id（如有多个订单活动, 由顾客选择具体参加哪个活动）
+     * @param float $amount     金额
+     * @param float $checked_id 被选中的活动（如果没有，则系统自动选择订单满足条件最高的活动）
+     *
+     * @return array $settle [ 'prom_id', 'prom_name', 'discounted', 'gift', 'freight', 'checked' ]
+     *                       [ '活动id', '活动名称', '优惠', '赠品', '邮费', '是否选中(只能有一个被选中)']
+     * @throws
+     * Author AlpFish 2016/9/14
+     */
+    static public function settlement($prom_id = 0, $amount, $checked_id = null)
+    {
+        if (!is_numeric($amount) || $amount < 0) {
+            throw new Exception('无效的订单金额。');
+        }
+
+        // 指定活动
+        if (is_numeric($prom_id) || $prom_id > 0) {
+            if ($prom = OrderPromotion::find($prom_id)) {
+                return self::promotionCompute($prom, $amount);
+            }
+        }
+
+        /**
+         * 系统自动选择促销
+         * 1. 选择满足金额最高的活动(逻辑上最适合)，但打折功能(满1元减0.XX元)就不易实现
+         * 2. 选择优惠金额最多的活动(默认)
+         * */
+        $proms   = OrderPromotion::all();
+        $settles = collect();
+        foreach ($proms as $prom){
+            $settles->push(self::promotionCompute($prom, $amount));
+        }
+        $settle = $settles->filter(function($item){
+            return $item[ 'prom_id' ] > 0;
+        })->sortByDesc('discounted')->first();
+
+        return $settle;
+    }
+
+    /**
+     * 订单优惠计算
+     *
+     * @param Model $prom   优惠记录
+     * @param float $amount 参加订单促销的金额
+     *
+     * @return array
+     * @throws
+     *
+     * Author AlpFish 2016/9/15
+     */
+    static protected function promotionCompute($prom, $amount)
+    {
+        if (!$prom instanceof OrderPromotion) {
+            throw new Exception('$prom 参数不是一个有效的模型实例。');
+        }
+        $settle[ 'prom_id' ]    = 0;
+        $settle[ 'prom_name' ]  = '';
+        $settle[ 'discounted' ] = 0;
+        $settle[ 'gift_id' ]    = '';
+        // 活动时间
+        if (!empty( $prom->start_time ) && time() < $prom->start_time) {
+            return $settle;
+        }
+        if (!empty( $prom->end_time ) && time() > $prom->end_time) {
+            return $settle;
+        }
+
+        switch ($prom->type){
+            case '0' : { # 满额减
+                // 支持打折，最高50%OFF，在后台设置满1元减0.XX元即可。
+                if (env('SHOP_PERCENT_DISCOUNT', true) && $prom->discount <= 0.5 && $prom->price == 1) {
+                    $settle[ 'discounted' ] = $amount * $prom->discount;
+                    $settle[ 'prom_id' ]    = $prom->id;
+                    $settle[ 'prom_name' ]  = $prom->name;
+                } elseif ($amount >= $prom->price && ( $amount - $prom->discount ) >= 0){
+                    $settle[ 'discounted' ] = $prom->discount;
+                    $settle[ 'prom_id' ]    = $prom->id;
+                    $settle[ 'prom_name' ]  = $prom->name;
+                }
+                break;
+            }
+            case '1' : { # 满免邮
+                if ($amount >= $prom->price) {
+                    $settle[ 'freight' ]   = 0;
+                    $settle[ 'prom_id' ]   = $prom->id;
+                    $settle[ 'prom_name' ] = $prom->name;
+                }
+                break;
+            }
+            case '2' : { # 满就送
+                if ($amount >= $prom->price) {
+                    $settle[ 'gift_id' ]   = $prom->discount;
+                    $settle[ 'prom_id' ]   = $prom->id;
+                    $settle[ 'prom_name' ] = $prom->name;
+                }
+            }
+        }
+
+        return $settle;
+    }
+}

@@ -14,19 +14,28 @@
 $api = app('Dingo\Api\Routing\Router');
 
 $api->version('v1', function($api){
-    $api->get('/goods/search', 'App\Api\V1\Goods\GoodsList\SearchController@index');
-    $api->get('/goods/category/tree', 'App\Api\V1\Goods\Category\CategoryController@getTree');
 
-    $api->group(['prefix' => 'member', 'namespace' => 'Api\V1\Member'], function($api){
+    $api->get('/goods/search', 'Api\V1\Goods\GoodsList\SearchController@index');
+    $api->get('/goods/category/tree', 'Api\V1\Goods\Category\CategoryController@getTree');
 
-        $api->post('register', 'AuthenticateController@register');   # 注册
-        $api->post('login', 'AuthenticateController@login');        # 登录
-
-        $api->group(['middleware' => 'token.auth'], function($api){
+    // 会员
+    $api->group([ 'prefix' => 'member', 'namespace' => 'Api\V1\Member' ], function($api){
+        $api->post('register', 'AuthenticateController@register');
+        $api->post('login', 'AuthenticateController@login'); # 获取 token 及用户
+        $api->get('login/token', 'AuthenticateController@tokenLogin'); # 使用 token 登录获取用户
+        $api->group([ 'middleware' => 'token.auth' ], function($api){
             $api->get('logout', 'AuthenticateController@logout');       # 退出登录
-            $api->get('/', 'MemberController@getUser');                        # 查看个人信息
         });
 
+    });
+
+    // 购物车
+    $api->group([ 'prefix' => 'cart', 'middleware' => 'token.auth', 'namespace' => 'Api\V1\Cart' ], function($api){
+        $api->get('all', 'CartController@all');
+        $api->get('add', 'CartController@add');
+        $api->get('update', 'CartController@update');
+        $api->get('delete', 'CartController@delete');
+        $api->get('settlement', 'CartController@settlement');
     });
 
 });
@@ -42,18 +51,21 @@ $api->version('v1', function($api){
 | and give it the Closure to call when that URI is requested.
 |
 */
-use App\Models\Member\Member\Member;
-use App\Repositories\Member\MemberRepository;
+use App\Models\Promotion\GoodsPromotion\GoodsPromotion;
 
 $app->get('/', function(){
 
-    echo MemberRepository::setToken(Member::first());
+    $da = 88.88;
+    $ga = "12345";
+    $db = 8;
+    $gb = "54321";
 
-    //    echo 'Api Home!';
-    $jwt = app('tymon.jwt');
-    //    $factory = app('tymon.jwt.payload.factory');
-    //
-    //    $token = $jwt->encode($factory->sub(1)->make());
-    //
-    //    ddd($token);
+    $format = "%.2f";
+    echo sprintf($format, $da).$ga;
+    echo '<br>';
+    echo sprintf($format, $db).$gb;
+});
+
+$app->get('/goodsprom', function(){
+    return GoodsPromotion::all()->toArray();
 });

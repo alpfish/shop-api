@@ -1,7 +1,7 @@
 <?php
 
 
-namespace App\Repositories\Caches\Goods\Goods;
+namespace App\Repositories\Caches\Goods;
 
 use App\Models\Goods\Goods\Goods;
 use App\Repositories\Caches\RedisKeys as Keys;

@@ -11,7 +11,6 @@ define('START', timer());
 // 自动加载
 require_once __DIR__.'/../vendor/autoload.php';
 
-// 使用 .env （生产环境如性能需求，可直接将配置写入包中）
 try {
     (new Dotenv\Dotenv(__DIR__.'/../'))->load();
 } catch (Dotenv\Exception\InvalidPathException $e) {
@@ -75,10 +74,12 @@ $app->singleton(
 $app->middleware([
     // 使用 CORS 处理跨域请求 及 使用 Authorization 头
     App\Http\Middleware\Cors::class,
+    // 获取 SQL 查询语句，生产环境注释掉
+    App\Http\Middleware\GetQueryLog::class,
 ]);
 
 $app->routeMiddleware([
-    // api 认证中间件, 避免与 dingo/api 和 tymon/jwt-auth 已注册的名称重名
+    // api token 认证中间件, 避免与 dingo/api 和 tymon/jwt-auth 已注册的名称重名
     'token.auth' => App\Http\Middleware\TokenAuth::class,
     // 'auth' => App\Http\Middleware\Authenticate::class,
 ]);

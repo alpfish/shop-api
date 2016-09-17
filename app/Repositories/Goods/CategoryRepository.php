@@ -1,8 +1,8 @@
 <?php
-namespace App\Repositories\Goods\Category;
+namespace App\Repositories\Goods;
 
-use App\Repositories\Caches\Goods\Goods\GoodsCacheRepository;
-use App\Repositories\Caches\Goods\Category\CategoryCacheRepository;
+use App\Repositories\Caches\Goods\GoodsCacheRepository;
+use App\Repositories\Caches\Goods\CategoryCacheRepository;
 
 class CategoryRepository
 {

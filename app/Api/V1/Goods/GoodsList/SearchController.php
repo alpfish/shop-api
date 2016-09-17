@@ -33,8 +33,8 @@ namespace Api\V1\Goods\GoodsList;
  *    备注：因为第一点已经大大提升了性能，大多请求都在1s内完成。故服务器压力不大时无需缓存搜索结果。
  *
  * */
-use App\Repositories\Goods\Category\CategoryRepository;
-use App\Repositories\Goods\Goods\GoodsRepository as Goods;
+use App\Repositories\Goods\CategoryRepository;
+use App\Repositories\Goods\GoodsRepository as Goods;
 
 class SearchController
 {

@@ -1,8 +1,8 @@
 <?php
-namespace App\Repositories\Goods\Goods;
+namespace App\Repositories\Goods;
 
 use App\Models\Goods\Goods\Goods;
-use App\Repositories\Caches\Goods\Goods\GoodsCacheRepository as GoodsCache;
+use App\Repositories\Caches\Goods\GoodsCacheRepository as GoodsCache;
 
 class GoodsRepository
 {

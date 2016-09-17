@@ -1,6 +1,4 @@
 <?php
-
-
 namespace App\Repositories\Member;
 
 use App\Models\Member\Member\Member;
@@ -39,11 +37,11 @@ class MemberRepository
         }
 
         // TODO 使用缓存
-        if (!$member = Member::find($id)) {
-            return null;
+        if ($member = Member::find($id)) {
+            return $member;
         }
 
-        return $member;
+        return null;
     }
 
     /**
@@ -51,7 +49,8 @@ class MemberRepository
      *
      * @param class Member
      *
-     * @return string token || Exception
+     * @throws \Exception 500
+     * @return string $token
      *
      * Author AlpFish 2016/9/3
      */
@@ -60,12 +59,7 @@ class MemberRepository
         $jwt     = app('tymon.jwt');
         $factory = app('tymon.jwt.payload.factory');
         try {
-            $id = $member->id;
-        } catch (\Exception $e) {
-            throw new \Exception('调用错误：setToken($member) 参数无效。', 500);
-        }
-        try {
-            $token = $jwt->encode($factory->sub($id)->make());
+            $token = $jwt->encode($factory->sub($member->id)->make());
         } catch (\Exception $e) {
             throw new \Exception('创建 Token 失败.', 500);
         }
@@ -79,22 +73,24 @@ class MemberRepository
     /**
      * 创建会员帐户
      *
-     * @return Member || false
+     * @throws \Exception 500
+     * @return Member
      *
      * Author AlpFish 2016/9/9
      */
     static public function createFromRequest()
     {
-        // TODO 使用事务 回滚？
+        // 字段验证放于控制器
+
         $member = new Member;
 
         $member->username      = app('request')->exists('username') ? app('request')->username : '';
         $member->mobile        = app('request')->exists('mobile') ? app('request')->mobile : '';
         $member->email         = app('request')->exists('email') ? app('request')->email : '';
-        $member->mobilestatus  = app('request')->exists('mobile') ? 1 : 0; // 手机认证状态（即是否通过短信验证，使用手机短信注册即为认证）
+        $member->mobilestatus  = app('request')->exists('mobile') ? 1 : 0; // 手机认证状态（使用手机短信注册即为认证）
         $member->emailstatus   = 0; // 邮箱认证状态（即是否通过邮件确认）
         $member->encrypt       = random(6); // 密钥（Lumen 系统的用户密码即密钥是最安全的，这是海盗系统的规则）
-        $member->password      = md5(md5(app('request')->get('password')) . $member->encrypt); // 海盗加密码规则
+        $member->password      = md5(md5(app('request')->get('password')) . $member->encrypt);
         $member->group_id      = 1;  // 会员等级
         $member->integral      = 0;  // 可用积分
         $member->islock        = 0;  // 是否锁定
@@ -104,14 +100,20 @@ class MemberRepository
         $member->login_ip      = app('request')->ip();  // 登录ip
         $member->login_num     = 1;                     // 登录次数
 
-        return $member->save() ? $member : false;
+        try {
+            $member->save();
+        } catch (\Exception $e) {
+            throw new \Exception('创建用户失败.', 500);
+        }
+
+        return $member;
     }
 
     /**
      * 登录
      *
-     * @param string $field 登录字段
-     * @param string $value 字段值
+     * @param string $field    登录字段
+     * @param string $value    字段值
      * @param string $password 密码
      *
      * @return Member|null
@@ -121,7 +123,7 @@ class MemberRepository
     static public function login($field, $value, $password)
     {
         $member = Member::where($field, $value)->first();
-        if ($member && $member->password === md5(md5($password).$member->encrypt)) {
+        if ($member && $member->password === md5(md5($password) . $member->encrypt)) {
 
             self::setToken($member);
 
