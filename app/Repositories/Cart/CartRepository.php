@@ -107,6 +107,33 @@ class CartRepository
     }
 
     /**
+     * 获取格式化的购物车商品结算信息
+     *
+     * @param array|int $cart_ids 购物车条目
+     *
+     * @throws
+     * @return array | null
+     * AlpFish 2016/9/19
+     */
+    static public function getSkuSettleInfo($cart_ids = [ ])
+    {
+        // 获取购物车条目
+        $cart_items = self::getCartItems($cart_ids);
+        if (empty( $cart_items )) {
+            return null;
+        }
+
+        // 添加SKU数据
+        $items = self::addSkuDataToCartItems($cart_items);
+
+        // 添加商品级促销数据
+        $items = self::addPromotionToCartItems($items);
+
+        // 格式化输出前台数据
+        return self::formatOutputCartItems($items);
+    }
+
+    /**
      * 购物车条目结算
      *
      * 只考虑单店系统
@@ -120,7 +147,7 @@ class CartRepository
      * 商品促销：支持按件/元打折, 最高50%OFF，在后台设置满1元减0.XX元即可。
      * 订单促销：支持打折，最高50%OFF，在后台设置满1元减0.XX元即可。
      *
-     * @param array   $cart_ids      会员购物车商品，为空表示所有商品
+     * @param array   $cart_ids      会员购物车ids，为空表示所有商品
      * @param int     $order_prom_id 顾客参与的订单促销id，默认为空，表示系统自动选择
      * @param boolean $invoices      是否开具发票
      * @param boolean $check_stock   是否检查库存，库存小于购买数将抛出异常
@@ -131,85 +158,22 @@ class CartRepository
      */
     static public function settlement(array $cart_ids = [ ], $order_prom_id = null, $invoices = false, $check_stock = false)
     {
+
         // 初始运费
         $freight             = env('SHOP_FREIGHT', 3);  # 统一运费
         $freight_free_amount = env('SHOP_FREIGHT_FREE_AMOUNT', 30); # 包邮金额
 
-        if (empty( $cart_ids )) {
-            $cart_items = Cart::select('id', 'sku_id', 'nums as buy_nums')->get()->toArray();
-        } else{
-            $cart_items = Cart::select('id', 'sku_id', 'nums as buy_nums')->whereIn('id', $cart_ids)->get()->toArray();
-        }
+        // 获取购物车条目
+        $cart_items = self::getCartItems($cart_ids);
         if (empty( $cart_items )) {
             return null;
         }
 
-        // 获取SKU数据, 包括所有状态，返回数组
-        $sku_ids = collect($cart_items)->pluck('sku_id')->all();
-        $fields  = [ 'sku_id', 'shop_price', 'number', 'prom_id', 'prom_type', 'status', 'sku_name', 'thumb', 'spec' ];
-        $skus    = SkuRepository::find($sku_ids, $fields, $cache = false);
+        // 添加SKU数据
+        $items = self::addSkuDataToCartItems($cart_items);
 
-        foreach ($cart_items as $key => $value){# cartitems为外循环，目的是不修改购物车已下架商品，由顾客自己删除
-            $found = false;
-            foreach ($skus as $k => $v){
-                if ($value[ 'sku_id' ] == $v[ 'sku_id' ]) {
-                    $cart_items[ $key ]                = array_merge($cart_items[ $key ], $skus[ $k ]);
-                    $cart_items[ $key ][ 'is_onsale' ] = $skus[ $k ][ 'status' ] == 1 ? true : false; # 下架或软删除
-                    $found                             = true;
-                    break;
-                }
-            }
-            if (!$found) { # 物理删除不存在的商品
-                Cart::whereSkuId($cart_items[ $key ][ 'sku_id' ])->delete();
-                unset( $cart_items[ $key ] );
-            }
-        }
-
-        $items =& $cart_items;
-
-        // 合并商品促销数据, 结算对象：上架的商品，有货的商品
-        foreach ($items as $key => $item){
-
-            // 初始化
-            $items[ $key ][ 'prom_name' ]     = ''; # 促销名称
-            $items[ $key ][ 'prom_price' ]    = $item[ 'shop_price' ]; // 促销价
-            $items[ $key ][ 'settle_amount' ] = $item[ 'shop_price' ] * $item[ 'buy_nums' ]; # 结算总额
-            $items[ $key ][ 'share_order' ]   = true;  # 同享订单促销
-            $items[ $key ][ 'discounted' ]    = 0;     # 已打折金额
-            $items[ $key ][ 'gift' ]          = '';    # 赠品
-            // 库存不足
-            if ($check_stock && ( $items[ $key ][ 'number' ] < $items[ $key ][ 'buy_nums' ] )) {
-                throw new \Exception('库存不足，无法购买。');
-            }
-
-            if ($item[ 'prom_type' ]) {
-                switch (strtolower($item[ 'prom_type' ])){
-                    // 限时促销
-                    case 'time' : {
-                        $settle = TimePromotion::settlement($item[ 'prom_id' ], $item[ 'sku_id' ], $item[ 'shop_price' ]);
-
-                        $items[ $key ][ 'prom_name' ]     = $settle[ 'prom_name' ];
-                        $items[ $key ][ 'prom_price' ]    = $settle[ 'settle_price' ];
-                        $items[ $key ][ 'settle_amount' ] = $settle[ 'settle_price' ] * $item[ 'buy_nums' ];
-                        $items[ $key ][ 'share_order' ]   = false;
-                        $items[ $key ][ 'discounted' ]    = ( $item[ 'shop_price' ] - $settle[ 'settle_price' ] ) * $item[ 'buy_nums' ];
-                        break;
-                    }
-                    // 商品促销
-                    case 'goods' : {
-                        $settle = GoodsPromotion::settlement($item[ 'prom_id' ], ( $item[ 'shop_price' ] * $item[ 'buy_nums' ] ), $item[ 'buy_nums' ]);
-
-                        $items[ $key ][ 'prom_name' ]     = $settle[ 'prom_name' ];
-                        $items[ $key ][ 'settle_amount' ] = $settle[ 'settle_amount' ];
-                        $items[ $key ][ 'share_order' ]   = $settle[ 'share_order' ];
-                        $items[ $key ][ 'discounted' ]    = $settle[ 'discounted' ];
-                        $items[ $key ][ 'gift' ]          = self::getGift($settle[ 'gift' ]);
-                    }
-                }
-            }
-        }
-
-        $items = collect($items);
+        // 添加商品级促销数据
+        $items = collect(self::addPromotionToCartItems($items));
 
         // 原价总额 = sum( 商品单价 * 购买数量 )
         $sku_amount = $items->sum(function($item){ return $item[ 'shop_price' ] * $item[ 'buy_nums' ]; });
@@ -238,6 +202,8 @@ class CartRepository
             $invoice_tax = ( $sku_amount - $discounted ) * $tax_rate * 0.01;
         }
 
+        // TODO 积分/优惠券
+
         // 结算总额 = 原价总额 + 运费 + 税收- 优惠总额
         $settle_amount = $sku_amount + $freight + $invoice_tax - $discounted;
         // 组装数据
@@ -254,69 +220,185 @@ class CartRepository
             // 订单促销
             'order_proms' => $order_proms,
             // 商品数据
-            'cart_items'  => $items->map(function($item){
-                return [
-                    'id'            => (int)$item[ 'id' ],
-                    'sku_id'        => (int)$item[ 'sku_id' ],
-                    'buy_nums'      => (int)$item[ 'buy_nums' ],
-                    'sku_nums'      => (int)$item[ 'number' ],
-                    'sku_name'      => $item[ 'sku_name' ],
-                    'sku_spec'      => collect(json_decode($item[ 'spec' ]))->map(function($v){ return [ $v->name => $v->value ]; }),
-                    'sku_thumb'     => $item[ 'thumb' ],
-                    'is_onsale'     => $item[ 'is_onsale' ],
-                    'shop_price'    => sprintf("%.2f", $item[ 'shop_price' ]),
-                    'prom_price'    => sprintf("%.2f", $item[ 'prom_price' ]),
-                    'prom_id'       => (int)$item[ 'prom_id' ],
-                    'prom_type'     => $item[ 'prom_type' ],
-                    'prom_name'     => $item[ 'prom_name' ],
-                    'settle_amount' => sprintf("%.2f", $item[ 'settle_amount' ]),
-                    'discounted'    => sprintf("%.2f", $item[ 'discounted' ]),
-                    'gift'          => $item[ 'gift' ],
-                ];
-            })->keyBy('sku_id'),
+            'cart_items'  => self::formatOutputCartItems($items),
         ];
 
         return $out;
     }
 
     /**
-     * 获取SKU数据及格式统一
+     * 统一获取购物车条目
      *
-     * @param int|array $sku_ids
+     * @param array|int [$cart_ids] 购物车id, 默认获取所有
      *
      * @return array
      *
      * Author AlpFish 2016/9/19
      */
-    static protected function getSkuData($sku_ids)
+    static private function getCartItems($cart_ids = [ ])
     {
-
-    }
-
-    static protected function addPromotionToSkus($skus)
-    {
-
-    }
-
-    static protected function getGift($id)
-    {
-        if (empty( $id )) {
-            return '';
+        if (empty( $cart_ids )) {
+            $cart_items = Cart::select('id', 'sku_id', 'nums as buy_nums')->get()->toArray();
+        } else{
+            $cart_items = Cart::select('id', 'sku_id', 'nums as buy_nums')->whereIn('id', (array)$cart_ids)->get()->toArray();
         }
 
-        return SkuRepository::find($id, [ 'sku_id', 'sku_name', 'thumb' ], $cache = true);
+        return $cart_items;
     }
 
     /**
-     * 获取会员购物车数据
+     * 添加统一格式的SKU数据到购物车条目
+     *
+     * @param array $cart_items
+     *
+     * @return array|null
+     * @throws
+     *
+     * Author AlpFish 2016/9/19
+     */
+    static private function addSkuDataToCartItems($cart_items)
+    {
+        if (empty( $cart_items )) {
+            return null;
+        }
+        $items = collect($cart_items)->first();
+        if (!isset( $items[ 'id' ] ) || !isset( $items[ 'sku_id' ] ) || !isset( $items[ 'buy_nums' ] )) {
+            throw new \Exception('购物车条目每行需要以下三个属性：id, sku_id, buy_nums');
+        }
+        $sku_ids = collect($cart_items)->pluck('sku_id')->all();
+        $fields  = [ 'sku_id', 'shop_price', 'number', 'prom_id', 'prom_type', 'status', 'sku_name', 'thumb', 'spec' ];
+        $skus    = SkuRepository::find($sku_ids, $fields, $cache = false); # 获取所有状态的SKU
+
+        foreach ($cart_items as $key => $value){# cartitems为外循环，目的是不修改购物车中已下架商品，由顾客自己删除
+            $found = false;
+            foreach ($skus as $k => $v){
+                if ($value[ 'sku_id' ] == $v[ 'sku_id' ]) {
+                    $cart_items[ $key ]                = array_merge($cart_items[ $key ], $skus[ $k ]);
+                    $cart_items[ $key ][ 'is_onsale' ] = $skus[ $k ][ 'status' ] == 1 ? true : false; # 下架或软删除
+                    $found                             = true;
+                    break;
+                }
+            }
+            if (!$found) { # 删除物理不存在的商品
+                Cart::whereSkuId($cart_items[ $key ][ 'sku_id' ])->delete();
+                unset( $cart_items[ $key ] );
+            }
+        }
+
+        return $cart_items;
+    }
+
+    /**
+     * 添加促销数据到购物车条目
+     *
+     * @param array $cart_items
      *
      * @return array
      *
-     * Author AlpFish 2016/9/18
+     * Author AlpFish 2016/9/19
      */
-    static protected function getMemberCart()
+    static private function addPromotionToCartItems($cart_items)
     {
-        return Cart::select('id', 'sku_id', 'nums as buy_nums')->get()->toArray();
+        if (empty( $cart_items )) {
+            return null;
+        }
+        foreach ($cart_items as $key => $item){
+
+            // 初始化
+            $cart_items[ $key ][ 'prom_name' ]     = ''; # 促销名称
+            $cart_items[ $key ][ 'prom_price' ]    = $item[ 'shop_price' ]; // 促销价
+            $cart_items[ $key ][ 'settle_amount' ] = $item[ 'shop_price' ] * $item[ 'buy_nums' ]; # 结算总额(设置该属性原因：在商品促销中总额不一定等于价格乘数量)
+            $cart_items[ $key ][ 'share_order' ]   = true;  # 同时享受订单促销
+            $cart_items[ $key ][ 'discounted' ]    = 0;     # 已打折金额
+            $cart_items[ $key ][ 'gift' ]          = '';    # 赠品
+
+            if ($item[ 'prom_type' ]) {
+                switch (strtolower($item[ 'prom_type' ])){
+                    // 限时促销
+                    case 'time' : {
+                        $settle = TimePromotion::settlement($item[ 'prom_id' ], $item[ 'sku_id' ], $item[ 'shop_price' ]);
+
+                        $cart_items[ $key ][ 'prom_name' ]     = $settle[ 'prom_name' ];
+                        $cart_items[ $key ][ 'prom_price' ]    = $settle[ 'settle_price' ];
+                        $cart_items[ $key ][ 'settle_amount' ] = $settle[ 'settle_price' ] * $item[ 'buy_nums' ];
+                        $cart_items[ $key ][ 'share_order' ]   = false;
+                        $cart_items[ $key ][ 'discounted' ]    = ( $item[ 'shop_price' ] - $settle[ 'settle_price' ] ) * $item[ 'buy_nums' ];
+                        break;
+                    }
+                    // 商品促销
+                    case 'goods' : {
+                        $settle = GoodsPromotion::settlement($item[ 'prom_id' ], ( $item[ 'shop_price' ] * $item[ 'buy_nums' ] ), $item[ 'buy_nums' ]);
+
+                        $cart_items[ $key ][ 'prom_name' ]     = $settle[ 'prom_name' ];
+                        $cart_items[ $key ][ 'settle_amount' ] = $settle[ 'settle_amount' ];
+                        $cart_items[ $key ][ 'share_order' ]   = $settle[ 'share_order' ];
+                        $cart_items[ $key ][ 'discounted' ]    = $settle[ 'discounted' ];
+                        $cart_items[ $key ][ 'gift' ]          = self::getGift($settle[ 'gift' ]);
+                    }
+                }
+            }
+        }
+
+        return $cart_items;
+    }
+
+    /**
+     * 格式化输出购物车条目
+     *
+     * @param array $cart_items 添加SKU数据和商品促销数据后的购物车条目
+     *
+     * @return array
+     *
+     * Author AlpFish 2016/9/19
+     */
+    static private function formatOutputCartItems($cart_items)
+    {
+        return collect($cart_items)->map(function($item){
+            return [
+                'id'            => (int)$item[ 'id' ],
+                'sku_id'        => (int)$item[ 'sku_id' ],
+                'buy_nums'      => (int)$item[ 'buy_nums' ],
+                'sku_nums'      => (int)$item[ 'number' ],
+                'sku_name'      => $item[ 'sku_name' ],
+                'sku_spec'      => collect(json_decode($item[ 'spec' ]))->map(function($v){ return [ $v->name => $v->value ]; }),
+                'sku_thumb'     => $item[ 'thumb' ],
+                'is_onsale'     => $item[ 'is_onsale' ],
+                'shop_price'    => sprintf("%.2f", $item[ 'shop_price' ]),
+                'prom_price'    => sprintf("%.2f", $item[ 'prom_price' ]),
+                'prom_id'       => (int)$item[ 'prom_id' ],
+                'prom_type'     => $item[ 'prom_type' ],
+                'prom_name'     => $item[ 'prom_name' ],
+                'share_order'   => $item[ 'share_order' ],
+                'settle_amount' => sprintf("%.2f", $item[ 'settle_amount' ]),
+                'discounted'    => sprintf("%.2f", $item[ 'discounted' ]),
+                'gift'          => $item[ 'gift' ],
+            ];
+        })->keyBy('id')->all();
+    }
+
+    /**
+     * 获取赠品数据
+     *
+     * @param int $sku_id
+     *
+     * @return array|''
+     *
+     * Author AlpFish 2016/9/19
+     */
+    static private function getGift($sku_id)
+    {
+        if (empty( $sku_id )) {
+            return '';
+        }
+        $gift = SkuRepository::find($sku_id, [ 'sku_id', 'sku_name', 'number', 'status' ], $cache = true)[ 0 ];
+        if ($gift && ( $gift[ 'number' ] < 1 || $gift[ 'status' ] != 1 )) {
+            return '';
+        }
+
+        return [
+            'sku_id' => $gift[ 'sku_id' ],
+            'name'   => $gift[ 'sku_name' ],
+        ];
     }
 
 }

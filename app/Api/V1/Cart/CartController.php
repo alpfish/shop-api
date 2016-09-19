@@ -9,7 +9,7 @@ class CartController
 {
     public function all()
     {
-        return Cart::settlement();
+        return Cart::getSkuSettleInfo();
     }
 
     /****************************************************************************************
@@ -26,30 +26,27 @@ class CartController
      * @apiParam {int} sku_id 商品
      * @apiParam {int} buy_nums 数量
      *
-     * @apiSuccess  (成功响应) {array}    added 所添加的商品
-     * @apiSuccess  (成功响应) {array}    xxx 结算数据，见结算
+     * @apiSuccess  (成功响应) {array}    added 所添加的商品及相关商品结算数据(见结算文档)
      * @apiError    (失败响应) {number}   status_code 422：参数或值错误，500：服务器错误
      * @apiError    (失败响应) {string}   message     错误信息
      * @apiError    (失败响应) {string}   errors      对应字段的验证错误信息
      */
     public function add()
     {
-        $rules   = [
-            'sku_id'   => 'required',
-            'buy_nums' => 'required|numeric|min:1',
-        ];
-        $payload = app('request')->only('sku_id', 'buy_nums');
-        $v       = app('validator')->make($payload, $rules);
-        if ($v->fails()) {
-            throw new \Dingo\Api\Exception\ValidationHttpException($v->errors());
-        }
         $sku_id   = app('request')->get('sku_id');
         $buy_nums = app('request')->get('buy_nums');
+        if (!is_numeric($sku_id) || $sku_id < 1) {
+            throw new \Exception('请求参数 sku_id 无效');
+        }
+        if (!is_numeric($buy_nums) || $buy_nums < 1) {
+            throw new \Exception('请求参数 buy_nums 无效');
+        }
 
-        return array_merge(
-            [ 'added' => Cart::add($sku_id, $buy_nums) ],
-            (array)Cart::settlement()
-        ); # 合并结算数据
+        $added = Cart::add($sku_id, $buy_nums);
+
+        return [
+            'added' => Cart::getSkuSettleInfo($added->id),
+        ];
     }
 
     /****************************************************************************************
@@ -66,33 +63,26 @@ class CartController
      *
      * @apiParam {int}      id       购物车id
      * @apiParam {int}      buy_nums 购买数量
-     * @apiParam {string}   [settle_ids] 参与结算的ids，使用','分隔，无此参数则结算所有购物车商品
      *
-     * @apiSuccess  (成功响应) {boolean}  updated       更新结果(其实状态码 200 即可视为更新成功)
-     * @apiSuccess  (成功响应) {array}    xxx           结算数据，见结算
+     * @apiSuccess  (成功响应) {boolean}  updated       更新的商品及相关商品结算数据(见结算文档)
      * @apiError    (失败响应) {number}   status_code   422：参数或值错误，500：服务器错误
      * @apiError    (失败响应) {string}   message       错误信息
      * @apiError    (失败响应) {string}   errors        对应字段的验证错误信息
      */
     public function update()
     {
-        $rules   = [
-            'id'       => 'required',
-            'buy_nums' => 'required|numeric|min:1',
-        ];
-        $payload = app('request')->only('id', 'buy_nums');
-        $v       = app('validator')->make($payload, $rules);
-        if ($v->fails()) {
-            throw new \Dingo\Api\Exception\ValidationHttpException($v->errors());
-        }
         $id         = app('request')->get('id');
         $buy_nums   = app('request')->get('buy_nums');
-        $settle_ids = app('request')->get('settle_ids') ? explode(',', app('request')->get('settle_ids')) : [ ];
+        if (!is_numeric($id) || $id < 1) {
+            throw new \Exception('请求参数 id 无效');
+        }
+        if (!is_numeric($buy_nums) || $buy_nums < 1) {
+            throw new \Exception('请求参数 buy_nums 无效');
+        }
 
-        return array_merge(
-            [ 'updated' => Cart::update($id, $buy_nums) ],
-            (array)Cart::settlement($settle_ids)
-        ); # 合并结算数据
+        Cart::update($id, $buy_nums);
+
+        return [ 'updated' => Cart::getSkuSettleInfo($id) ];
     }
 
     /****************************************************************************************
@@ -107,10 +97,8 @@ class CartController
      * @apiDescription  删除购物车商品
      *
      * @apiParam {string} id 购物车id，支持多个用','号分隔，注意不是sku_id
-     * @apiParam {string}   [settle_ids] 参与结算的ids，使用','分隔，无此参数则结算所有购物车商品
      *
      * @apiSuccess  (成功响应) {boolean}  deleted       删除结果, true|数字表示删除成功，fasle|null 表示没有记录被删除
-     * @apiSuccess  (成功响应) {array}    xxx           结算数据，见结算
      * @apiError    (失败响应) {number}   status_code   422：参数或值错误，500：服务器错误
      * @apiError    (失败响应) {string}   message       错误信息
      * @apiError    (失败响应) {string}   errors        对应字段的验证错误信息
@@ -119,20 +107,14 @@ class CartController
     {
         $id = app('request')->get('id');
         if (!is_numeric($id) || $id < 1) {
-            throw new \Dingo\Api\Exception\ValidationHttpException([ 'id' => '请求参数不正确' ]);
+            throw new \Exception('请求参数 id 无效');
         }
-        $settle_ids = app('request')->get('settle_ids') ? explode(',', app('request')->get('settle_ids')) : [ ];
 
-        return array_merge(
-            [ 'deleted' => Cart::delete(explode(',', $id)) ],
-            (array)Cart::settlement($settle_ids)
-        );
+        return [ 'deleted' => Cart::delete(explode(',', $id)) ];
     }
 
     /****************************************************************************************
-     *
      * 购物车结算
-     *
      * Alpfish 2016/9/19 10:38
      *
      * @api             {GET} cart/settlement settlement
@@ -179,12 +161,12 @@ class CartController
      */
     public function settlement()
     {
-        if (!app('request')->has('ids')) {
-            throw new \Dingo\Api\Exception\ValidationHttpException([ 'ids' => '请求参数不正确' ]);
-        }
         $ids = explode(',', app('request')->get('ids'));
 
-        return Cart::settlement($ids, null, null);
-    }
+        if (!$ids) {
+            throw new \Exception('请求参数 ids 无效');
+        }
 
+        return Cart::settlement($ids);
+    }
 }

@@ -15,7 +15,7 @@ class SkuRepository
      * @param array|string $fields 获取哪些字段的值
      * @param boolean      $cache  是否使用缓存
      *
-     * @return Array|null
+     * @return Array|[] 二维数组
      *
      * Author AlpFish 2016/9/17
      */
