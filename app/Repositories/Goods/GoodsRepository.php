@@ -20,9 +20,9 @@ class GoodsRepository
    *
    * @author AlpFish 2016/8/22 21:10
    */
-  public static function getCell($id, $fields)
+  public static function cell($id, $fields)
   {
-    return GoodsCache::getCell($id, $fields);
+    return GoodsCache::cell($id, $fields);
   }
 
   /**
@@ -36,8 +36,8 @@ class GoodsRepository
    *
    * @author AlpFish 2016/8/23 20:10
    */
-  public static function getOrderByIds($ids = array (), $field = 'sort', $order = 'asc')
+  public static function sortByIds($ids = array (), $field = 'sort', $order = 'asc')
   {
-    return GoodsCache::getOrderByIds($ids, $field, $order);
+    return GoodsCache::sortByIds($ids, $field, $order);
   }
 }

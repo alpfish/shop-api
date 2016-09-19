@@ -3,7 +3,7 @@
 namespace App\Repositories\Promotion;
 
 use Exception;
-use App\Models\Promotion\GoodsPromotion\GoodsPromotion;
+use App\Repositories\Caches\Promotion\PromotionCacheRepository as PromotionCache;
 
 
 /**
@@ -46,12 +46,10 @@ use App\Models\Promotion\GoodsPromotion\GoodsPromotion;
  */
 class GoodsPromotionRepository
 {
-    // 静态保存促销活动
-    static protected $proms = [ ];
-
     /**
      * 商品促销结算
      *
+     * 商品/限时促销固定不可取消。
      * 接收输入条件，返回结算结果，不负责结算范围处理
      * 支持按件/元打折, 最高50%OFF，在后台设置满1元减0.XX元即可。
      * eg: (同件商品) 买一件9折、两件8折、三件6折...
@@ -69,7 +67,7 @@ class GoodsPromotionRepository
     {
         $settle_init = [
             'prom_name'     => '',
-            'share_order'   => true,
+            'share_order'   => true, # 享受订单促销
             'settle_amount' => $amount,
             'discounted'    => 0,
             'gift'       => '', # 不组装赠品信息
@@ -80,11 +78,8 @@ class GoodsPromotionRepository
         if (!(int)$prom_id) {
             return $settle_init;
         }
-        if (!isset( self::$proms[ $prom_id ] )) {
-            self::$proms[ $prom_id ] = GoodsPromotion::find($prom_id);
-        }
         // 活动不存在
-        if (!$prom = self::$proms[ $prom_id ]) {
+        if (!$prom = PromotionCache::getGoodsPromById($prom_id)) {
             return $settle_init;
         }
         // 活动时间
@@ -101,10 +96,10 @@ class GoodsPromotionRepository
 
             // 初始化
             $settle    = $settle_init;
-            $condition = $rule[ 'condition' ];
-            $discount  = $rule[ 'discount' ];
+            $condition = $rule->condition;
+            $discount  = $rule->discount;
 
-            switch ($rule[ 'type' ]){
+            switch ($rule->type){
                 case 'number_discount': # 满件减
                 case 'amount_discount': # 满额减
                 {
@@ -129,14 +124,13 @@ class GoodsPromotionRepository
 
             if ($settle[ 'discounted' ] || $settle[ 'gift' ]) {
                 $settle[ 'prom_name' ]   = $prom->name;
-                $settle[ 'share_order' ] = (boolean)$prom->share_order;
+                $settle[ 'share_order' ] = (boolean)$prom->share_order; # 由活动决定，参加了商品促销后是否参加订单促销
                 $settles->push($settle);
             }
         }
 
-        // 筛选最高优惠（不支持顾客指定规则，但顾客可不参加活动，创建活动时最好不要将满减和满送放在同个活动中）
+        // 筛选：优惠力度最大->付款总额最高->有赠品
         $settle = $settles->sortByDesc(function($item){
-            // 浮点排序：优惠力度最大->付款总额最高->有赠品
             return (float)( sprintf("%.2f", $item[ 'discounted' ]) . sprintf("%04d", $item[ 'settle_amount' ]) . $item[ 'gift' ] );
         })->first();
 

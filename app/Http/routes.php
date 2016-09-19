@@ -51,21 +51,23 @@ $api->version('v1', function($api){
 | and give it the Closure to call when that URI is requested.
 |
 */
-use App\Models\Promotion\GoodsPromotion\GoodsPromotion;
+use App\Repositories\Goods\SkuRepository as Sku;
 
 $app->get('/', function(){
 
-    $da = 88.88;
-    $ga = "12345";
-    $db = 8;
-    $gb = "54321";
+    exit;
 
-    $format = "%.2f";
-    echo sprintf($format, $da).$ga;
-    echo '<br>';
-    echo sprintf($format, $db).$gb;
 });
 
 $app->get('/goodsprom', function(){
     return GoodsPromotion::all()->toArray();
 });
+
+
+function getIds($nums) {
+    $ids = [];
+    for ($i = 1; $i<=$nums; $i++) {
+        $ids[] = mt_rand(100, 3500);
+    }
+    return $ids;
+}

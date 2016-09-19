@@ -3,12 +3,10 @@
 namespace App\Repositories\Promotion;
 
 use Exception;
-use App\Models\Promotion\TimePromotion\TimePromotion;
+use App\Repositories\Caches\Promotion\PromotionCacheRepository as PromotionCache;
 
 class TimePromotionRepository
 {
-    static protected $proms = [ ];
-
     /**
      * 限时促销结算
      *
@@ -36,10 +34,7 @@ class TimePromotionRepository
         if (!is_numeric($sku_id) || $sku_id < 1) {
             return $settle;
         }
-        if (!isset( self::$proms[ $prom_id ] )) {
-            self::$proms[ $prom_id ] = TimePromotion::find($prom_id);
-        }
-        if (!$prom = self::$proms[ $prom_id ]) {
+        if (!$prom = PromotionCache::getTimePromById($prom_id)) {
             return $settle;
         }
         // 活动时间
@@ -50,9 +45,10 @@ class TimePromotionRepository
             return $settle;
         }
 
-        if (isset( $prom->sku_info[ $sku_id ] ) && $prom->sku_info[ $sku_id ] > 0) {
+        $settle_price = isset( $prom->sku_info->$sku_id ) ? $prom->sku_info->$sku_id : 0;
+        if ($settle_price > 0) {
             $settle[ 'prom_name' ]    = $prom->name;
-            $settle[ 'settle_price' ] = $prom->sku_info[ $sku_id ];
+            $settle[ 'settle_price' ] = $settle_price;
         }
 
         return $settle;

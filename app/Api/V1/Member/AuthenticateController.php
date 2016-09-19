@@ -8,10 +8,10 @@ use Api\V1\Controller;
 class AuthenticateController extends Controller
 {
     /****************************************************************************************
+     * 会员注册
+     * Alpfish 2016/9/10 9:04
      *
-     * @by              Alpfish 2016/9/10 9:04
-     *
-     * @api             {POST} member/register 会员注册
+     * @api             {POST} member/register register
      * @apiName         register
      * @apiGroup        Member
      * @apiVersion      1.0.0
@@ -24,7 +24,7 @@ class AuthenticateController extends Controller
      * @apiParam {string} password 密码.
      * @apiParam {string} password_confirmation 确认密码.
      *
-     * @apiHeader   (请求成功) {string}  Authorization 会员的认证 Token ,
+     * @apiHeader   (成功响应头) {string}  Authorization 会员的认证 Token ,
      *                                                认证请求时添加到 Authorization 头，或请求参数 token 中.
      * @apiSuccess  (请求成功) {array}  member 注册成功的会员信息.
      *
@@ -69,7 +69,7 @@ class AuthenticateController extends Controller
      * 会员登录
      * Alpfish 2016/9/10 9:22
      *
-     * @api             {POST} member/register 会员登录
+     * @api             {POST} member/register login
      * @apiName         login
      * @apiGroup        Member
      * @apiVersion      1.0.0
@@ -81,7 +81,7 @@ class AuthenticateController extends Controller
      * @apiParam {string} account   帐号(系统自动判断 会员名/手机号/邮箱 字段)
      * @apiParam {string} password  密码
      *
-     * @apiHeader   (请求成功) {string} Authorization 会员的认证 Token ,认证请求时添加到 Authorization 头，或请求参数 token 中.
+     * @apiHeader   (成功响应头) {string} Authorization 会员的认证 Token ,认证请求时添加到 Authorization 头，或请求参数 token 中.
      * @apiSuccess  (请求成功) {array}  member        登录成功的会员信息.
      *
      * @apiError    (请求失败) {number}   status_code 422：参数或值错误，500：服务器错误
@@ -126,10 +126,10 @@ class AuthenticateController extends Controller
     }
 
     /****************************************************************************************
+     * 使用 token 登录
+     * Alpfish 2016/9/10 17:20
      *
-     * @by              Alpfish 2016/9/10 17:20
-     *
-     * @api             {GET} member/register TokenLogin
+     * @api             {GET} member/register token_login
      * @apiName         TokenLogin
      * @apiGroup        Member
      * @apiVersion      1.0.0
@@ -138,7 +138,7 @@ class AuthenticateController extends Controller
      *
      * @apiParam {string} token
      *
-     * @apiHeader   (请求成功) {string} [Authorization] 刷新的 Token ，需要刷新时才返回
+     * @apiHeader   (成功响应头) {string} [Authorization] 刷新的 Token ，需要刷新时才返回
      * @apiSuccess  (请求成功) {array}  member          登录成功的会员信息.
      *
      * @apiError    (请求失败) {number}   status_code 401：登录失败

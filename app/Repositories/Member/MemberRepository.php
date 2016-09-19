@@ -2,6 +2,7 @@
 namespace App\Repositories\Member;
 
 use App\Models\Member\Member\Member;
+use App\Repositories\Caches\Member\MemberCacheRepository as MemberCache;
 
 class MemberRepository
 {
@@ -36,12 +37,8 @@ class MemberRepository
             return null;
         }
 
-        // TODO 使用缓存
-        if ($member = Member::find($id)) {
-            return $member;
-        }
-
-        return null;
+        //        return Member::find($id);
+        return MemberCache::model($id);
     }
 
     /**

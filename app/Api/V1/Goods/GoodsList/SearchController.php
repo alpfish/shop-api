@@ -23,7 +23,7 @@ namespace Api\V1\Goods\GoodsList;
  *
  * 4. 获取商品列表数据
  *    按返回客户端的ids集从商品缓存中获取商品列表数据
- *    [性能]直接从缓存getCell()获取商品数据
+ *    [性能]直接从缓存cell()获取商品数据
  *
  * 性能提升：
  *
@@ -56,9 +56,9 @@ class SearchController
 
     /****************************************************************************************
      * 商品搜索 API
+     * Alpfish 2016/8/14 6:35
      *
-     * @by              Alpfish 2016/8/14 6:35
-     * @api             {GET} goods/search 商品搜索
+     * @api             {GET} goods/search search
      * @apiName         商品搜索
      * @apiGroup        Goods
      * @apiVersion      1.0.0
@@ -148,7 +148,7 @@ class SearchController
             $direction  = 'dec';
         }
 
-        $ids = Goods::getOrderByIds($ids, $this->sort, $direction);
+        $ids = Goods::sortByIds($ids, $this->sort, $direction);
 
         return collect($ids)->forPage($this->page, $this->per_page)->all();
     }
@@ -157,7 +157,7 @@ class SearchController
     {
         $goods = [];
         foreach ($ids as $id){
-            $goods[] = Goods::getCell(
+            $goods[] = Goods::cell(
                 $id,
                 [
                     'id',

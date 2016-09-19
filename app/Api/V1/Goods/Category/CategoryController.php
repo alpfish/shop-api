@@ -8,9 +8,9 @@ class CategoryController
   /****************************************************************************************
    *
    * 获取类目树 API
+   * Alpfish 2016/8/19 09:54
    *
-   * @by              Alpfish 2016/8/19 09:54
-   * @api             {GET} goods/category/tree 类目树
+   * @api             {GET} goods/category/tree category_tree
    * @apiName         类目树
    * @apiGroup        Goods
    * @apiVersion      1.0.0

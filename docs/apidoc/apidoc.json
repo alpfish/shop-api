@@ -1,0 +1,20 @@
+{
+  "name": "Alpfish-Api 文档",
+  "version": "0.1.0",
+  "description": "此文档将帮助你更好地进行前端开发。",
+  "title": "Alpfish-Api 文档",
+  "url" : "http://learn.haidao.app/api",
+  "sampleUrl": "http://learn.haidao.app/api",
+  "header": {
+    "title": "使用说明",
+    "filename": "header.md"
+  },
+  "footer": {
+    "title": "公共数据",
+    "filename": "footer.md"
+  },
+  "order": [
+    "User",
+    "Goods"
+  ]
+}

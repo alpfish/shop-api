@@ -21,7 +21,7 @@ class CategoryCacheRepository
      *
      * @author AlpFish 2016/8/22 21:10
      */
-    public static function getCell($id, $fields)
+    public static function cell($id, $fields)
     {
         $key = sprintf(Keys::CATEGORY_CELLS_ID[ 'key' ], $id);
 
@@ -121,7 +121,7 @@ class CategoryCacheRepository
             } else{
                 $ends = [];
                 foreach ($cids as $id){
-                    if (self::getCell($id, 'parent_id') == $cid) {
+                    if (self::cell($id, 'parent_id') == $cid) {
                         $ends[] = $id;
                     }
                 };

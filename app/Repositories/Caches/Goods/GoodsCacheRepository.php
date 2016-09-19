@@ -22,7 +22,7 @@ class GoodsCacheRepository
      *
      * @author AlpFish 2016/8/22 21:10
      */
-    public static function getCell($id, $fields)
+    public static function cell($id, $fields)
     {
         $key = sprintf(Keys::GOODS_CELLS_ID[ 'key' ], $id);
 
@@ -56,7 +56,7 @@ class GoodsCacheRepository
      *
      * @author AlpFish 2016/8/23 20:04
      */
-    public static function getOrderByIds($ids = array (), $field = 'sort', $order = 'asc')
+    public static function sortByIds($ids = array (), $field = 'sort', $order = 'asc')
     {
         $order = strtolower($order) == 'asc' ? 'asc' : 'dec';
         switch (strtolower($field)){
@@ -93,7 +93,7 @@ class GoodsCacheRepository
         if ($add) {
             $pipes = app('redis')->pipeline(function($pipe) use ($add, $key, $field){
                 foreach ($add as $id){
-                    $score = self::getCell($id, $field);
+                    $score = self::cell($id, $field);
                     $pipe->zadd($key, $score, $id);
                 }
             });

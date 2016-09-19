@@ -31,14 +31,22 @@ namespace App\Repositories\Caches;
  * */
 class RedisKeys
 {
-    const CATEGORY_CELLS_ID  = ['key' => 'category:cells:%s', 'time' => 60 * 60 * 24];
-    const CATEGORY_SETS_IDS  = ['key' => 'category:sets:ids', 'time' => 60 * 60 * 24];
-    const CATEGORY_SETS_PIDS = ['key' => 'category:sets:pids', 'time' => 60 * 60 * 24];
-    const CATEGORY_STRS_TREE = ['key' => 'category:strs:tree', 'time' => 60 * 60 * 24];
+    const MEMBER_MODEL_ID = [ 'key' => 'member:model:%s', 'time' => 60 * 60 ];
 
-    const GOODS_CELLS_ID     = ['key' => 'goods:cells:%s', 'time' => 60 * 30];
-    const GOODS_SORTED_PRICE = ['key' => 'goods:sorted:price', 'time' => 60 * 30];
-    const GOODS_SORTED_SALES = ['key' => 'goods:sorted:sales', 'time' => 60 * 60 * 8];
-    const GOODS_SORTED_SORT  = ['key' => 'goods:sorted:sort', 'time' => 60 * 60 * 12];
+    const GOODS_CELLS_ID     = [ 'key' => 'goods:cells:%s', 'time' => 60 * 30 ];
+    const GOODS_SORTED_PRICE = [ 'key' => 'goods:sorted:price', 'time' => 60 * 30 ];
+    const GOODS_SORTED_SALES = [ 'key' => 'goods:sorted:sales', 'time' => 60 * 60 * 8 ];
+    const GOODS_SORTED_SORT  = [ 'key' => 'goods:sorted:sort', 'time' => 60 * 60 * 12 ];
+
+    const SKU_CELLS_ID = [ 'key' => 'sku:cells:%s', 'time' => 60 * 10 ];
+
+    const CATEGORY_CELLS_ID  = [ 'key' => 'category:cells:%s', 'time' => 60 * 60 * 24 ];
+    const CATEGORY_SETS_IDS  = [ 'key' => 'category:sets:ids', 'time' => 60 * 60 * 24 ];
+    const CATEGORY_SETS_PIDS = [ 'key' => 'category:sets:pids', 'time' => 60 * 60 * 24 ];
+    const CATEGORY_STRS_TREE = [ 'key' => 'category:strs:tree', 'time' => 60 * 60 * 24 ];
+
+    const PROMOTION_ORDER_STRS_ALL = [ 'key' => 'promotion:order:strs:all', 'time' => 60 * 10 ];
+    const PROMOTION_GOODS_STRS_ID = [ 'key' => 'promotion:goods:strs:%s', 'time' => 60 * 10 ];
+    const PROMOTION_TIME_STRS_ID = [ 'key' => 'promotion:time:strs:%s', 'time' => 60 * 10 ];
 
 }

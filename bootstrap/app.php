@@ -115,6 +115,8 @@ try {
 $app->register(Dingo\Api\Provider\LumenServiceProvider::class);
 
 // jwt（借用 jwt 实现自定义认证系统，全局辅助函数 auth_user() ，不使用Lumen|dingo|jwt的认证系统）
+// jwt包中注册服务前两项：路由中间件和认证可以注释掉，没有用到
+// jwt功能用时太多，超过200ms。考虑重构。
 $app->register(Tymon\JWTAuth\Providers\LumenServiceProvider::class);
 
 /*
