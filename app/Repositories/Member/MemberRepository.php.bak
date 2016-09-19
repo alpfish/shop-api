@@ -3,7 +3,6 @@ namespace App\Repositories\Member;
 
 use App\Models\Member\Member\Member;
 use App\Repositories\Caches\Member\MemberCacheRepository as MemberCache;
-use App\Libs\JWT\JWT;
 
 class MemberRepository
 {
@@ -16,27 +15,49 @@ class MemberRepository
      */
     static public function tokenMember()
     {
+
+        //$jwt = app('tymon.jwt');
         // jwt 可以从请求头（ Authorization: bearer XXX ）或 GET/POST/COOKIE 参数名 token 中获取 token
         // 但 Apache 服务器会摒弃 Authorization 请求头，所以前端要将 token 设置在请求参数中
+
+
+        $time = timer();
+        /*
         if (!$token = app('request')->get('token')) {
             return null;
         }
+        $token = new \Tymon\JWTAuth\Token($token);
+        */
 
+        $token = jwt()->token(['id'=>'1']);
+        $id = jwt()->claims($token);
+
+
+        return MemberCache::model(1);
+
+        ddd(timer() - $time, $id);
+
+        // 原 tymon.jwt 使用方法，太耗时，放弃
+        if (!$token = $jwt->getToken()) {
+            return null;
+        }
         try {
-            $id = JWT::decode($token)->member_id;
-        } catch (\App\Libs\JWT\Src\TTLExpiredException $e) {
+            $id = $jwt->payload()->get('sub');
+        } catch (\Tymon\JWTAuth\Exceptions\TokenExpiredException $e) {
             // 自动更新过期的token并添加到响应头
             try {
-                $token = JWT::refresh($token);
+                $token = $jwt->refresh($token);
                 header("Authorization:$token");
-                $id = JWT::decode($token)->member_id;
+                $id = $jwt->payload($token)->get('sub');
             } catch (\Exception $e) {
                 return null;
             }
         } catch (\Exception $e) {
             return null;
         }
+        ddd(timer() - $time, $id);
 
+        //        return Member::find($id);
         return MemberCache::model($id);
     }
 
@@ -52,8 +73,10 @@ class MemberRepository
      */
     static public function setToken($member)
     {
+        $jwt     = app('tymon.jwt');
+        $factory = app('tymon.jwt.payload.factory');
         try {
-            $token = JWT::encode('member_id', $member->id);
+            $token = $jwt->encode($factory->sub($member->id)->make());
         } catch (\Exception $e) {
             throw new \Exception('创建 Token 失败.', 500);
         }
