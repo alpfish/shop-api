@@ -18,12 +18,6 @@ if (! function_exists('auth_member')) {
     }
 }
 
-
-
-
-
-
-
 // haidao 辅助函数
 
 /**

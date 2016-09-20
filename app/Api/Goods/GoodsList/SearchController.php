@@ -1,5 +1,5 @@
 <?php
-namespace Api\V1\Goods\GoodsList;
+namespace Api\Goods\GoodsList;
 
 /*******************************************************************************************
  *
@@ -50,7 +50,7 @@ class SearchController
         $this->setSearchParams();
 
         if (is_null($this->cid) && is_null($this->keywords) && is_null($this->brand_id)) {
-            throw new \Symfony\Component\HttpKernel\Exception\BadRequestHttpException('搜索请求参数必须含有以下其中一个：cid, keywords, brand_id');
+            throw new \Exception('必须包含以下其中一个参数：cid, keywords, brand_id', 400);
         }
     }
 

@@ -4,7 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 
-class TokenAuth
+class JWTAuth
 {
     /**
      * 用户认证中间件（借用 tymon/jwt-auth 实现）
@@ -22,8 +22,7 @@ class TokenAuth
     public function handle($request, Closure $next)
     {
         if (!auth_member()) {
-            return response('Unauthorized.', 401);
-            // throw new \Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException('认证失败.');
+            return api()->errors([], 401, 'Unauthorized.');
         }
 
         return $next($request);

@@ -1,6 +1,7 @@
 <?php
 namespace App\Repositories\Member;
 
+use App\Exceptions\ApiException;
 use App\Models\Member\Member\Member;
 use App\Repositories\Caches\Member\MemberCacheRepository as MemberCache;
 use App\Libs\JWT\JWT;
@@ -111,22 +112,25 @@ class MemberRepository
      * @param string $password 密码
      *
      * @return Member|null
+     * @throws
      *
      * Author AlpFish 2016/9/10
      */
     static public function login($field, $value, $password)
     {
-        $member = Member::where($field, $value)->first();
-        if ($member && $member->password === md5(md5($password) . $member->encrypt)) {
+        if ($member = Member::where($field, $value)->first()){
+            if ($member->password === md5(md5($password) . $member->encrypt)) {
+                self::setToken($member);
 
-            self::setToken($member);
+                $member->login_time = time();
+                $member->login_ip   = app('request')->ip();
+                $member->login_num += 1;
+                $member->save();
 
-            $member->login_time = time();
-            $member->login_ip   = app('request')->ip();
-            $member->login_num += 1;
-            $member->save();
+                return $member;
+            }
 
-            return $member;
+            throw new ApiException([ 'password' => '密码不正确' ], 422);
         }
 
         return null;

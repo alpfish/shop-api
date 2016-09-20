@@ -8,7 +8,6 @@
         "php": ">=5.5.9",
         "laravel/lumen-framework": "5.2.8",
         "vlucas/phpdotenv": "~2.2",
-        "dingo/api": "1.0.0-beta3",
         "illuminate/redis": "^5.2"
     },
     "require-dev": {

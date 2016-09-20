@@ -78,8 +78,8 @@ $app->middleware([
 ]);
 
 $app->routeMiddleware([
-    // api token 认证中间件, 避免与 dingo/api 和 tymon/jwt-auth 已注册的名称重名
-    'token.auth' => App\Http\Middleware\TokenAuth::class,
+    // api jwt 认证中间件, 避免与 dingo/api 和 tymon/jwt-auth 已注册的名称重名
+    'jwt.auth' => App\Http\Middleware\JWTAuth::class,
     // 'auth' => App\Http\Middleware\Authenticate::class,
 ]);
 
@@ -100,7 +100,8 @@ $app->routeMiddleware([
 
 // 注册 Redis
 $app->register(Illuminate\Redis\RedisServiceProvider::class);
-try {
+/*
+try {  // 降低性能
     //app('config')->set('cache.default', 'redis'); // 在 .env 中设置
     if (! app('redis')->set('foo', 'bar', 'px', 10)) {
         throw new Exception('Redis not working ...');
@@ -108,10 +109,7 @@ try {
 } catch (Exception $e) {
     //app('config')->set('cache.default', 'file');
     die('Redis not working ...');
-}
-
-// dingo/api , 由于性能原因，使用自定义JWT认证，见 Member 仓库
-$app->register(Dingo\Api\Provider\LumenServiceProvider::class);
+}*/
 
 /*
 |--------------------------------------------------------------------------
@@ -124,7 +122,10 @@ $app->register(Dingo\Api\Provider\LumenServiceProvider::class);
 |
 */
 
-$app->group(['namespace' => 'App\Http\Controllers'], function ($app) {
+//$app->group(['namespace' => 'App\Http\Controllers'], function ($app) {
+//    require __DIR__.'/../app/Http/routes.php';
+//});
+$app->group(['namespace' => 'Api'], function ($app) {
     require __DIR__.'/../app/Http/routes.php';
 });
 

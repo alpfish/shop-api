@@ -1,7 +1,7 @@
 <?php
 
 
-namespace Api\V1\Cart;
+namespace Api\Cart;
 
 use App\Repositories\Cart\CartRepository as Cart;
 
@@ -36,10 +36,10 @@ class CartController
         $sku_id   = app('request')->get('sku_id');
         $buy_nums = app('request')->get('buy_nums');
         if (!is_numeric($sku_id) || $sku_id < 1) {
-            throw new \Exception('请求参数 sku_id 无效');
+            throw new \Exception('请求参数 sku_id 无效', 400);
         }
         if (!is_numeric($buy_nums) || $buy_nums < 1) {
-            throw new \Exception('请求参数 buy_nums 无效');
+            throw new \Exception('请求参数 buy_nums 无效', 400);
         }
 
         $added = Cart::add($sku_id, $buy_nums);
@@ -71,13 +71,14 @@ class CartController
      */
     public function update()
     {
+        // TODO 更改SKU
         $id         = app('request')->get('id');
         $buy_nums   = app('request')->get('buy_nums');
         if (!is_numeric($id) || $id < 1) {
             throw new \Exception('请求参数 id 无效');
         }
         if (!is_numeric($buy_nums) || $buy_nums < 1) {
-            throw new \Exception('请求参数 buy_nums 无效');
+            throw new \Exception('请求参数 buy_nums 无效', 400);
         }
 
         Cart::update($id, $buy_nums);
@@ -107,7 +108,7 @@ class CartController
     {
         $id = app('request')->get('id');
         if (!is_numeric($id) || $id < 1) {
-            throw new \Exception('请求参数 id 无效');
+            throw new \Exception('请求参数 id 无效', 400);
         }
 
         return [ 'deleted' => Cart::delete(explode(',', $id)) ];
@@ -164,7 +165,7 @@ class CartController
         $ids = explode(',', app('request')->get('ids'));
 
         if (!$ids) {
-            throw new \Exception('请求参数 ids 无效');
+            throw new \Exception('请求参数 ids 无效', 400);
         }
 
         return Cart::settlement($ids);

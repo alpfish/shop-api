@@ -1,9 +1,8 @@
 <?php
-
-
 namespace App\Repositories\Cart;
 
 use App\Models\Cart\Cart;
+use App\Exceptions\ApiException;
 use App\Repositories\Goods\SkuRepository;
 use App\Repositories\Promotion\TimePromotionRepository as TimePromotion;
 use App\Repositories\Promotion\OrderPromotionRepository as OrderPromotion;
@@ -39,12 +38,12 @@ class CartRepository
     static public function add($sku_id, $buy_nums)
     {
         $sku = SkuRepository::find($sku_id, 'number', false);
-        if (!$sku) {
-            throw new \Dingo\Api\Exception\ValidationHttpException([ 'sku_id' => '商品已下架。' ]);
+        if (empty($sku[ 0 ][ 'number' ])) {
+            throw new ApiException([ 'sku_id' => '商品已下架。' ], 422);
         }
         $cart = Cart::whereSkuId($sku_id)->first();
         if ($sku[ 0 ][ 'number' ] < $buy_nums) {
-            throw new \Dingo\Api\Exception\ValidationHttpException([ 'buy_nums' => '商品库存不足。' ]);
+            throw new ApiException([ 'buy_nums' => '商品库存不足。' ], 422);
         }
         try {
             // 存在时更新
@@ -78,13 +77,13 @@ class CartRepository
      * @param int $buy_nums 数量
      *
      * @return boolean
-     *
+     * @throws
      * AlpFish 2016/9/13
      */
     static public function update($cart_id, $buy_nums)
     {
         if (!is_numeric($buy_nums) || $buy_nums < 1) {
-            throw new \Dingo\Api\Exception\ValidationHttpException([ 'buy_nums' => '商品数量不正确。' ]);
+            throw new ApiException([ 'buy_nums' => '商品数量不正确。' ], 422);
         }
 
         // 未判断库存，在获取购物车时带库存量&&前端判断&&后台结算时判断

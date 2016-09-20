@@ -1,11 +1,11 @@
 <?php
 
-namespace Api\V1\Member;
+namespace Api\Member;
 
+use App\Exceptions\ApiException;
 use App\Repositories\Member\MemberRepository as Member;
-use Api\V1\Controller;
 
-class AuthenticateController extends Controller
+class AuthenticateController
 {
     /****************************************************************************************
      * 会员注册
@@ -36,7 +36,7 @@ class AuthenticateController extends Controller
     {
         $rules = [
             'username' => 'sometimes|required|min:2|max:255|regex:/^[\x{4e00}-\x{9fa5}A-Za-z0-9_]+$/u|unique:member',
-            'mobile'   => 'sometimes|required|regex:/^1[34578][0-9]{9}$/|unique:member',
+            'mobile'   => 'required|regex:/^1[34578][0-9]{9}$/|unique:member',
             'email'    => 'sometimes|required|email|unique:member',
             'password' => 'required|confirmed|min:6', // confirmed: password && password_confirmation
         ];
@@ -51,7 +51,7 @@ class AuthenticateController extends Controller
         });
 
         if ($validator->fails()) {
-            throw new \Dingo\Api\Exception\ValidationHttpException($validator->errors());
+            throw new ApiException($validator->errors(), 422, '参数验证错误');
         }
 
         $member = Member::createFromRequest();
@@ -59,10 +59,10 @@ class AuthenticateController extends Controller
         try {
             Member::setToken($member);
         } catch (\Exception $e) {
-            // nothing (Token 出错不影响注册)
+            // nothing
         }
 
-        return $this->response->array([ 'member' => $member->toArray() ]);
+        return response()->json([ 'member' => $member->toArray() ]);
     }
 
     /****************************************************************************************
@@ -81,12 +81,14 @@ class AuthenticateController extends Controller
      * @apiParam {string} account   帐号(系统自动判断 会员名/手机号/邮箱 字段)
      * @apiParam {string} password  密码
      *
-     * @apiHeader   (成功响应头) {string} Authorization 会员的认证 Token ,认证请求时添加到 Authorization 头，或请求参数 token 中.
+     * @apiHeader   (成功响应头) {string} Authorization 会员的认证 Token ,认证请求时添加到 Authorization 头，或请求参数
+     *              token 中.
      * @apiSuccess  (请求成功) {array}  member        登录成功的会员信息.
      *
      * @apiError    (请求失败) {number}   status_code 422：参数或值错误，500：服务器错误
      * @apiError    (请求失败) {string}   message     失败信息
-     * @apiError    (请求失败) {array }   errors      验证失败对应字段的错误信息(account 对应的字段有：username,mobile,email)
+     * @apiError    (请求失败) {array }   errors      验证失败对应字段的错误信息(account
+     *              对应的字段有：username,mobile,email)
      */
     public function login()
     {
@@ -114,15 +116,15 @@ class AuthenticateController extends Controller
         $validator = app('validator')->make($payload, $rules);
 
         if ($validator->fails()) {
-            throw new \Dingo\Api\Exception\ValidationHttpException($validator->errors());
+            throw new ApiException($validator->errors(), 422, '参数验证错误');
         }
 
         $member = Member::login($field, $account, $password);
-        if (!$member) {
-            throw new \Dingo\Api\Exception\ValidationHttpException([ 'password' => '密码不正确' ]);
+        if (empty($member)) {
+            throw new ApiException([ 'account' => '账号不存在' ], 422);
         }
 
-        return $this->response->array([ 'member' => $member->toArray() ]);
+        return response()->json([ 'member' => $member->toArray() ]);
     }
 
     /****************************************************************************************
@@ -147,10 +149,10 @@ class AuthenticateController extends Controller
     public function tokenLogin()
     {
         if ($member = Member::tokenMember()) {
-            return $this->response->array([ 'member' => $member->toArray() ]);
+            return response()->json([ 'member' => $member->toArray() ]);
         }
 
-        return $this->response->errorUnauthorized();
+        abort(401, '认证失败：无效的 token');
     }
 
     public function resetPassword()

@@ -1,5 +1,5 @@
 <?php
-namespace Api\V1\Goods\Category;
+namespace Api\Goods\Category;
 
 use App\Repositories\Goods\CategoryRepository;
 

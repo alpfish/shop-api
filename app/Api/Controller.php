@@ -1,11 +1,9 @@
 <?php
 
-namespace Api\V1;
+namespace Api;
 
 use Laravel\Lumen\Routing\Controller as BaseController;
-use Dingo\Api\Routing\Helpers;
 
 class Controller extends BaseController
 {
-    use Helpers;
 }
