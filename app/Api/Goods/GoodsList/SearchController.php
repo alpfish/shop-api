@@ -43,7 +43,7 @@ class SearchController
     protected $keywords = null;
     protected $sort     = 'sort';
     protected $page     = 1;
-    protected $per_page = 100;
+    protected $per_page = 4;
 
     public function __construct()
     {

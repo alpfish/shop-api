@@ -3,6 +3,7 @@
 
 namespace Api\Cart;
 
+use App\Exceptions\ApiException;
 use App\Repositories\Cart\CartRepository as Cart;
 
 class CartController
@@ -62,7 +63,8 @@ class CartController
      *                  不检查库存，在返回结算数据时带库存量&&前端判断&&后台结算时判断
      *
      * @apiParam {int}      id       购物车id
-     * @apiParam {int}      buy_nums 购买数量
+     * @apiParam {int}      sku_id   [二选一]sku_id
+     * @apiParam {int}      buy_nums [二选一]购买数量
      *
      * @apiSuccess  (成功响应) {boolean}  updated       更新的商品及相关商品结算数据(见结算文档)
      * @apiError    (失败响应) {number}   status_code   422：参数或值错误，500：服务器错误
@@ -71,17 +73,22 @@ class CartController
      */
     public function update()
     {
-        // TODO 更改SKU
-        $id         = app('request')->get('id');
-        $buy_nums   = app('request')->get('buy_nums');
-        if (!is_numeric($id) || $id < 1) {
-            throw new \Exception('请求参数 id 无效');
-        }
-        if (!is_numeric($buy_nums) || $buy_nums < 1) {
-            throw new \Exception('请求参数 buy_nums 无效', 400);
+        $rules     = [
+            'id'       => 'required|numeric|min:1',
+            'sku_id'   => 'required_without:buy_nums|numeric|min:1|exists:goods_sku,sku_id',
+            'buy_nums' => 'required_without:sku_id|numeric|min:1',
+        ];
+        $payload   = app('request')->all();
+        $validator = app('validator')->make($payload, $rules);
+        if ($validator->fails()) {
+            throw new ApiException($validator->errors(), 422, '参数验证错误');
         }
 
-        Cart::update($id, $buy_nums);
+        $id       = app('request')->get('id');
+        $sku_id   = app('request')->get('sku_id');
+        $buy_nums = app('request')->get('buy_nums');
+
+        Cart::update($id, $sku_id, $buy_nums);
 
         return [ 'updated' => Cart::getSkuSettleInfo($id) ];
     }
@@ -142,6 +149,7 @@ class CartController
      * @apiSuccess  (成功：order_proms) {boolean}  checked     是否选择
      * @apiSuccess  (成功：cart_items)  {int}      id             购物车id
      * @apiSuccess  (成功：cart_items)  {int}      sku_id         sku_id
+     * @apiSuccess  (成功：cart_items)  {int}      spu_id         spu_id，更改规则用
      * @apiSuccess  (成功：cart_items)  {int}      buy_nums       购买数量
      * @apiSuccess  (成功：cart_items)  {int}      sku_nums       库存数量
      * @apiSuccess  (成功：cart_items)  {string}   sku_name       商品名称

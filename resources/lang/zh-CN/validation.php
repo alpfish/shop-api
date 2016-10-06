@@ -144,7 +144,6 @@ return [
         'size'                  => '大小',
         'vcode'                 => '短信验证码',
         'quantity'              => '数量',
-
     ],
 
 ];

@@ -38,7 +38,7 @@ class CartRepository
     static public function add($sku_id, $buy_nums)
     {
         $sku = SkuRepository::find($sku_id, 'number', false);
-        if (empty($sku[ 0 ][ 'number' ])) {
+        if (empty( $sku[ 0 ][ 'number' ] )) {
             throw new ApiException([ 'sku_id' => '商品已下架。' ], 422);
         }
         $cart = Cart::whereSkuId($sku_id)->first();
@@ -73,21 +73,35 @@ class CartRepository
      * 为何使用 $cart_id ?
      * 购物车增/删/改涉及频繁的AJAX请求，使用主键提升查询效率。
      *
-     * @param int $cart_id  购物车id
-     * @param int $buy_nums 数量
+     * @param int $cart_id  购物车id（必须）
+     * @param int $sku_id   [二选一]购物车id
+     * @param int $buy_nums [二选一]数量
      *
      * @return boolean
      * @throws
      * AlpFish 2016/9/13
      */
-    static public function update($cart_id, $buy_nums)
+    static public function update($cart_id, $sku_id, $buy_nums)
     {
-        if (!is_numeric($buy_nums) || $buy_nums < 1) {
-            throw new ApiException([ 'buy_nums' => '商品数量不正确。' ], 422);
+        $up       = [ ];
+        $del_nums = 0;
+        if (is_numeric($sku_id) && $sku_id > 1) {
+            $up[ 'sku_id' ] = (int)$sku_id;
+            // 保证单个会员购物车中SKU唯一
+            if ($del = Cart::where('sku_id', $sku_id)->where('id', '<>', $cart_id)->get()) {
+                $del_nums = $del->sum('nums');
+                Cart::where('sku_id', $sku_id)->where('id', '<>', $cart_id)->delete();
+            }
+        }
+        if (is_numeric($buy_nums) && $buy_nums > 1) {
+            $up[ 'nums' ] = (int)($buy_nums + $del_nums); # 不存在则保留原来的数量
+        }
+        if (empty( $up )) {
+            throw new ApiException([ ], 400, '请求参数 sku_id 和 buy_nums 至少需要一个');
         }
 
         // 未判断库存，在获取购物车时带库存量&&前端判断&&后台结算时判断
-        return Cart::select('nums')->whereId($cart_id)->update([ 'nums' => (int)$buy_nums ]);
+        return Cart::whereId($cart_id)->update($up);
     }
 
     /**
@@ -265,7 +279,7 @@ class CartRepository
             throw new \Exception('购物车条目每行需要以下三个属性：id, sku_id, buy_nums');
         }
         $sku_ids = collect($cart_items)->pluck('sku_id')->all();
-        $fields  = [ 'sku_id', 'shop_price', 'number', 'prom_id', 'prom_type', 'status', 'sku_name', 'thumb', 'spec' ];
+        $fields  = [ 'sku_id', 'spu_id', 'shop_price', 'number', 'prom_id', 'prom_type', 'status', 'sku_name', 'thumb', 'spec' ];
         $skus    = SkuRepository::find($sku_ids, $fields, $cache = false); # 获取所有状态的SKU
 
         foreach ($cart_items as $key => $value){# cartitems为外循环，目的是不修改购物车中已下架商品，由顾客自己删除
@@ -354,23 +368,24 @@ class CartRepository
     {
         return collect($cart_items)->map(function($item){
             return [
-                'id'            => (int)$item[ 'id' ],
-                'sku_id'        => (int)$item[ 'sku_id' ],
-                'buy_nums'      => (int)$item[ 'buy_nums' ],
-                'sku_nums'      => (int)$item[ 'number' ],
-                'sku_name'      => $item[ 'sku_name' ],
-                'sku_spec'      => collect(json_decode($item[ 'spec' ]))->map(function($v){ return [ $v->name => $v->value ]; }),
-                'sku_thumb'     => $item[ 'thumb' ],
-                'is_onsale'     => $item[ 'is_onsale' ],
-                'shop_price'    => sprintf("%.2f", $item[ 'shop_price' ]),
-                'prom_price'    => sprintf("%.2f", $item[ 'prom_price' ]),
-                'prom_id'       => (int)$item[ 'prom_id' ],
-                'prom_type'     => $item[ 'prom_type' ],
-                'prom_name'     => $item[ 'prom_name' ],
-                'share_order'   => $item[ 'share_order' ],
-                'settle_amount' => sprintf("%.2f", $item[ 'settle_amount' ]),
-                'discounted'    => sprintf("%.2f", $item[ 'discounted' ]),
-                'gift'          => $item[ 'gift' ],
+                'id'            => (int)$item[ 'id' ],      # 更新/删除时用
+                'sku_id'        => (int)$item[ 'sku_id' ],  # 添加时用
+                'spu_id'        => (int)$item[ 'spu_id' ],  # 更改sku时用
+                'buy_nums'      => (int)$item[ 'buy_nums' ],# 增删改用
+                'sku_nums'      => (int)$item[ 'number' ],  # 库存，前端判断可购买
+                'sku_name'      => $item[ 'sku_name' ], # 显示用
+                'sku_spec'      => collect(json_decode($item[ 'spec' ]))->map(function($v){ return [ $v->name => $v->value ]; }), # 判断更改sku时用(非空即可更改)
+                'sku_thumb'     => $item[ 'thumb' ], # 显示用
+                'is_onsale'     => $item[ 'is_onsale' ], # 在售否
+                'shop_price'    => sprintf("%.2f", $item[ 'shop_price' ]), # 店铺价(原价)
+                'prom_price'    => sprintf("%.2f", $item[ 'prom_price' ]), # 促销价
+                'prom_id'       => (int)$item[ 'prom_id' ], # 促销id, (可不要？)
+                'prom_type'     => $item[ 'prom_type' ], # 促销类型（显示判断）
+                'prom_name'     => $item[ 'prom_name' ], # 促销名称（显示用）
+                'share_order'   => $item[ 'share_order' ], # 同时享受订单促销（要？）
+                'settle_amount' => sprintf("%.2f", $item[ 'settle_amount' ]), # 结算额（促销价*数量）
+                'discounted'    => sprintf("%.2f", $item[ 'discounted' ]), # 优惠额
+                'gift'          => $item[ 'gift' ], # 赠品
             ];
         })->keyBy('id')->all();
     }
